@@ -9,5 +9,5 @@ jiwer
 more_itertools
 editdistance
 av
-accelerate >= 0.21.0
+accelerate == 0.28.0
 tensorboardX

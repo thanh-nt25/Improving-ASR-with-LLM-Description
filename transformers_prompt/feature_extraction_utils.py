@@ -224,15 +224,25 @@ class BatchFeature(UserDict):
                 # it's something else
                 raise ValueError(f"Attempting to cast a BatchFeature to type {str(arg)}. This is not supported.")
         # We cast only floating point tensors to avoid issues with tokenizers casting `LongTensor` to `FloatTensor`
+        # for k, v in self.items():
+        #     # check if v is a floating point
+        #     if torch.is_floating_point(v):
+        #         # cast and send to device
+        #         new_data[k] = v.to(*args, **kwargs)
+        #     elif device is not None:
+        #         new_data[k] = v.to(device=device)
+        #     else:
+        #         new_data[k] = v
+
         for k, v in self.items():
-            # check if v is a floating point
-            if torch.is_floating_point(v):
-                # cast and send to device
-                new_data[k] = v.to(*args, **kwargs)
-            elif device is not None:
-                new_data[k] = v.to(device=device)
-            else:
-                new_data[k] = v
+          # check if v is a floating point
+          if v is not None and torch.is_floating_point(v):
+              # cast and send to device
+              new_data[k] = v.to(*args, **kwargs)
+          elif device is not None and v is not None:
+              new_data[k] = v.to(device=device)
+          else:
+              new_data[k] = v
         self.data = new_data
         return self
 

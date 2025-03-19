@@ -1,3 +1,4 @@
+# Add this at the beginning of your whisper_fine.py file
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -7,9 +8,10 @@ from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, Whispe
 from utils_prompt import compute_wer, DataCollatorSpeechS2SWhitPadding
 from data.dataloader import PromptWhisperDataset
 import os
+from huggingface_hub import login
+import argparse
 torch.manual_seed(1004)
 torch.cuda.manual_seed_all(1004)
-import argparse
 
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
@@ -27,12 +29,32 @@ if __name__ == '__main__':
     
     parser.add_argument('--random', action='store_true', help="context perturbation")
     parser.add_argument('--basic', action='store_true', help="collected description")
+    
+    # Add arguments for Hugging Face integration and checkpointing
+    parser.add_argument('--save-hf', action='store_true', help="Save model to Hugging Face Hub")
+    parser.add_argument('--hf-repo', type=str, default=None, help="Hugging Face repository name (e.g., username/repo-name)")
+    parser.add_argument('--hf-token', type=str, default=None, help="Hugging Face API token")
+    parser.add_argument('--resume', action='store_true', help="Resume training from checkpoint")
+    parser.add_argument('--checkpoint-path', type=str, default=None, help="Path or HF repo to resume training from")
+    
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     print("Device:", device)
     args.prompt = True
+    
+    # Login to Hugging Face if saving to Hub
+    if args.save_hf and (args.hf_token or args.hf_repo):
+        if args.hf_token:
+            login(token=args.hf_token)
+        else:
+            print("Please set HUGGING_FACE_HUB_TOKEN environment variable or use --hf-token")
+            login()
+        
+        if not args.hf_repo:
+            args.hf_repo = f"{os.environ.get('HUGGINGFACE_USERNAME', 'user')}/whisper-{args.model}-{args.dataset}"
+            print(f"No repository name specified, using: {args.hf_repo}")
     
     # prepare feature extractor, tokenizer
     feature_extractor = WhisperFeatureExtractor.from_pretrained(f'openai/whisper-{args.model}')
@@ -58,9 +80,43 @@ if __name__ == '__main__':
     else:
         raise ValueError("Wrong dataset")
 
-    # load model
+    # load model - Check if resuming from checkpoint
+    checkpoint_path = None
+    if args.resume:
+        if args.checkpoint_path:
+            checkpoint_path = args.checkpoint_path
+            print(f"Resuming from specified checkpoint: {checkpoint_path}")
+        elif args.save_hf and args.hf_repo:
+            checkpoint_path = args.hf_repo
+            print(f"Resuming from HF Hub checkpoint: {checkpoint_path}")
+        else:
+            # Look for local checkpoint
+            root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results"
+            checkpoint_dir = os.path.join(root_path, "results", args.exp_name)
+            if os.path.exists(checkpoint_dir):
+                checkpoint_path = checkpoint_dir
+                print(f"Resuming from local checkpoint: {checkpoint_path}")
+            else:
+                print("No checkpoint found. Starting from scratch.")
+    
     if args.prompt:
-        model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+        if args.eval and args.checkpoint_path:
+            # For evaluation with specified checkpoint
+            model = WhisperPromptForConditionalGeneration.from_pretrained(args.checkpoint_path)
+            print(f"Model loaded from {args.checkpoint_path} for evaluation!")
+        elif checkpoint_path and args.resume:
+            # For resuming training
+            try:
+                model = WhisperPromptForConditionalGeneration.from_pretrained(checkpoint_path)
+                print(f"Successfully loaded model from checkpoint: {checkpoint_path}")
+            except Exception as e:
+                print(f"Error loading checkpoint: {e}")
+                print("Falling back to original model")
+                model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+        else:
+            # For initial training
+            model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+            
         # Freeze all parameters
         for name, param in model._named_members(lambda module: module._parameters.items()):
             if args.freeze: 
@@ -76,9 +132,6 @@ if __name__ == '__main__':
         print("Prompt must be used.")
         raise(ValueError)
     
-    if args.eval:
-        model = model.from_pretrained("model_path")
-        print("model loaded!!")
     model.to(device)
 
     model.config.forced_decoder_ids = None
@@ -86,7 +139,7 @@ if __name__ == '__main__':
 
     #root_path = "results/"
     root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results"
-    os.makedirs(os.path.join(root_path, args.exp_name), exist_ok=True)
+    os.makedirs(os.path.join(root_path, "results", args.exp_name), exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
@@ -105,9 +158,15 @@ if __name__ == '__main__':
         pos_token_id=50360
     )
     
+    # Configure HF Hub settings based on arguments
+    hub_strategy = "every_save" if args.save_hf else None
+    
     training_args = Seq2SeqTrainingArguments(
         weight_decay=0.01,
-        output_dir= os.path.join(root_path, "results", args.exp_name),  # change to a repo name of your choice
+        output_dir=os.path.join(root_path, "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results", args.exp_name),
+        hub_model_id=args.hf_repo if args.save_hf else None,
+        hub_strategy=hub_strategy,
+        push_to_hub=args.save_hf,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
         gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
@@ -128,7 +187,6 @@ if __name__ == '__main__':
         dataloader_pin_memory=False,
         metric_for_best_model="wer",
         greater_is_better=False,
-        push_to_hub=False,
         model=args.model,
         remove_unused_columns=False,
         pos_token_id=tokenizer.convert_tokens_to_ids("<|startofprev|>")
@@ -146,8 +204,18 @@ if __name__ == '__main__':
 
     if not args.eval:
         print("Start Training!")
-        # trainer.train(resume_from_checkpoint = True) # if needed
-        trainer.train()
+        # Resume from checkpoint if specified
+        resume_from_checkpoint = checkpoint_path if args.resume else None
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        
+        # Save final model
+        trainer.save_model()
+        processor.save_pretrained(training_args.output_dir)
+        
+        # Push to hub if requested
+        if args.save_hf and args.hf_repo:
+            print(f"Pushing final model to Hugging Face Hub: {args.hf_repo}")
+            trainer.push_to_hub()
 
     print("Start Evaluation!!")
     if args.prompt:
