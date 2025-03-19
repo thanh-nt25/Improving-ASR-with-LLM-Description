@@ -167,6 +167,8 @@ class NotebookProgressBar:
                 self.wait_for = max(int(self.update_every / self.average_time_per_item), 1)
 
     def update_bar(self, value, comment=None):
+        if value % 200 != 0:
+            return
         spaced_value = " " * (len(str(self.total)) - len(str(value))) + str(value)
         if self.elapsed_time is None:
             self.label = f"[{spaced_value}/{self.total} : < :"
