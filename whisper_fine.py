@@ -14,7 +14,11 @@ torch.manual_seed(1004)
 torch.cuda.manual_seed_all(1004)
 
 if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        # Context đã được thiết lập, bỏ qua
+        pass
     parser = argparse.ArgumentParser(description='whisper prompt tuning')
 
     parser.add_argument('--exp-name', type=str, default="test", help="path to save result")
