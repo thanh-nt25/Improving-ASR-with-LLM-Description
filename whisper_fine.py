@@ -10,7 +10,7 @@ from datasets import Audio
 import torch
 from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperPromptForConditionalGeneration, GenerationConfig, WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
 from transformers.trainer_callback import TrainerCallback
-from utils_prompt import compute_wer, DataCollatorSpeechS2SWhitPadding
+from utils_prompt import compute_wer, compute_wer_ocw, DataCollatorSpeechS2SWhitPadding
 from data.dataloader import PromptWhisperDataset
 import os
 from huggingface_hub import login
@@ -83,9 +83,9 @@ if __name__ == '__main__':
         data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
 
     elif args.dataset == 'ocw':
-        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"ocw/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
-        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"ocw/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"ocw/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
+        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
 
     else:
         raise ValueError("Wrong dataset")
@@ -101,8 +101,12 @@ if __name__ == '__main__':
             print(f"Resuming from HF Hub checkpoint: {checkpoint_path}")
         else:
             # Look for local checkpoint
-            root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results"
-            checkpoint_dir = os.path.join(root_path, "results", args.exp_name)
+            root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/"
+            if args.dataset == 'earning':
+              checkpoint_dir = os.path.join(root_path, "results", args.exp_name)
+            else:
+              checkpoint_dir = os.path.join(root_path, "results_ocw", args.exp_name)
+
             if os.path.exists(checkpoint_dir):
                 checkpoint_path = checkpoint_dir
                 print(f"Resuming from local checkpoint: {checkpoint_path}")
@@ -149,7 +153,10 @@ if __name__ == '__main__':
     
     #root_path = "results/"
     root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/"
-    os.makedirs(os.path.join(root_path, "results", args.exp_name), exist_ok=True)
+    if args.dataset == 'earning':
+      os.makedirs(os.path.join(root_path, "results", args.exp_name), exist_ok=True)
+    else:
+      os.makedirs(os.path.join(root_path, "results_ocw", args.exp_name), exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
@@ -229,7 +236,9 @@ if __name__ == '__main__':
     #       print("\nEvaluation completed.")
     #       self.last_updated_step = 0
 
-    trainer = Seq2SeqTrainer(
+
+    if args.dataset == 'earning':
+      trainer = Seq2SeqTrainer(
         args=training_args,
         model=model,
         train_dataset=data_train,
@@ -238,7 +247,18 @@ if __name__ == '__main__':
         compute_metrics=compute_wer,
         tokenizer=processor.feature_extractor,
         # callbacks=[CustomProgressCallback()]
-    )
+      )
+    else:
+      trainer = Seq2SeqTrainer(
+          args=training_args,
+          model=model,
+          train_dataset=data_train,
+          eval_dataset=data_eval,
+          data_collator=data_collator,
+          compute_metrics=compute_wer_ocw,
+          tokenizer=processor.feature_extractor,
+          # callbacks=[CustomProgressCallback()]
+      )
 
     if not args.eval:
         print("Start Training!")
