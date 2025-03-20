@@ -2,9 +2,14 @@
 import warnings
 warnings.filterwarnings("ignore")
 
+import numpy as np
+import torch.serialization
+torch.serialization.add_safe_globals([np._core.multiarray._reconstruct])
+
 from datasets import Audio
 import torch
 from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperPromptForConditionalGeneration, GenerationConfig, WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
+from transformers.trainer_callback import TrainerCallback
 from utils_prompt import compute_wer, DataCollatorSpeechS2SWhitPadding
 from data.dataloader import PromptWhisperDataset
 import os
@@ -20,7 +25,7 @@ if __name__ == '__main__':
     # except RuntimeError:
     #     # Context đã được thiết lập, bỏ qua
     #     pass
-    # parser = argparse.ArgumentParser(description='whisper prompt tuning')
+    parser = argparse.ArgumentParser(description='whisper prompt tuning')
 
     parser.add_argument('--exp-name', type=str, default="test", help="path to save result")
     parser.add_argument('--model', type=str, default="base.en", help="path to save result")
@@ -60,7 +65,7 @@ if __name__ == '__main__':
         if not args.hf_repo:
             args.hf_repo = f"{os.environ.get('HUGGINGFACE_USERNAME', 'user')}/whisper-{args.model}-{args.dataset}"
             print(f"No repository name specified, using: {args.hf_repo}")
-    
+    print(f"save_hf: {args.save_hf}, hf_repo: {args.hf_repo}")
     # prepare feature extractor, tokenizer
     feature_extractor = WhisperFeatureExtractor.from_pretrained(f'openai/whisper-{args.model}')
     tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
@@ -141,9 +146,9 @@ if __name__ == '__main__':
 
     model.config.forced_decoder_ids = None
     model.config.suppress_tokens = []
-
+    
     #root_path = "results/"
-    root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results"
+    root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/"
     os.makedirs(os.path.join(root_path, "results", args.exp_name), exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
@@ -168,10 +173,10 @@ if __name__ == '__main__':
     
     training_args = Seq2SeqTrainingArguments(
         weight_decay=0.01,
-        output_dir=os.path.join(root_path, "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/results", args.exp_name),
+        output_dir=os.path.join(root_path, "results", args.exp_name),
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
-        push_to_hub=args.save_hf,
+        push_to_hub=True,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
         gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
@@ -181,7 +186,7 @@ if __name__ == '__main__':
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=1,
+        per_device_eval_batch_size=256,
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
@@ -196,6 +201,33 @@ if __name__ == '__main__':
         remove_unused_columns=False,
         pos_token_id=tokenizer.convert_tokens_to_ids("<|startofprev|>")
     )
+    print(f"hub_model_id: {training_args.hub_model_id}")
+    print(f"hub_strategy: {training_args.hub_strategy}")
+    print(f"push_to_hub: {training_args.push_to_hub}")
+
+    # class CustomProgressCallback(TrainerCallback):
+    #   def __init__(self):
+    #       self.prediction_bar = None
+    #       self.last_updated_step = 0
+          
+    #   def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
+    #       if not hasattr(eval_dataloader, "__len__"):
+    #           return
+              
+    #       total_steps = len(eval_dataloader)
+    #       # Chỉ hiển thị 10 cập nhật trong toàn bộ quá trình
+    #       display_interval = max(1, total_steps // 10)
+          
+    #       current_step = self.last_updated_step + 1
+    #       self.last_updated_step = current_step
+          
+    #       # Chỉ hiển thị tại một số điểm nhất định
+    #       if current_step == 1 or current_step == total_steps or current_step % display_interval == 0:
+    #           print(f"\rEvaluation: {current_step}/{total_steps} ({(current_step/total_steps*100):.1f}%)", end="")
+            
+    #   def on_evaluate(self, args, state, control, **kwargs):
+    #       print("\nEvaluation completed.")
+    #       self.last_updated_step = 0
 
     trainer = Seq2SeqTrainer(
         args=training_args,
@@ -205,10 +237,12 @@ if __name__ == '__main__':
         data_collator=data_collator,
         compute_metrics=compute_wer,
         tokenizer=processor.feature_extractor,
+        # callbacks=[CustomProgressCallback()]
     )
 
     if not args.eval:
         print("Start Training!")
+        
         # Resume from checkpoint if specified
         resume_from_checkpoint = checkpoint_path if args.resume else None
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)

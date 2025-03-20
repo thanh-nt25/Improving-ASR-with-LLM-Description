@@ -171,35 +171,33 @@ def compute_wer(pred, args, prompts):
     print("\n\nDone inference!")
     print("Start decoding and calculating WER...")
     
-    cutted_label_ids = []
-    cutted_pred_ids = []
+    # Sử dụng trực tiếp pred_ids và label_ids nếu không có prompts hợp lệ
+    cutted_pred_ids = pred_ids.copy()  # Sử dụng copy để tránh thay đổi dữ liệu gốc
+    cutted_label_ids = label_ids.copy()
     
-    # Kiểm tra xem prompts có dữ liệu không trước khi xử lý
-    if prompts is not None and len(prompts) > 0:
-        for i in tqdm(range(0, len(pred_ids))):
+    # Chỉ xử lý cắt prompt nếu prompts có dữ liệu và có đúng cấu trúc
+    if prompts is not None and len(prompts) > 0 and all(p is not None and isinstance(p, list) and len(p) > 0 for p in prompts[:5]):
+        # Có vẻ như prompts có cấu trúc đúng, thử xử lý
+        cutted_pred_ids = []
+        cutted_label_ids = []
+        
+        for i in tqdm(range(len(pred_ids))):
             try:
-                # Kiểm tra xem prompts[i] có tồn tại và có phải là một danh sách/tuple có ít nhất một phần tử không
                 if i < len(prompts) and prompts[i] is not None and len(prompts[i]) > 0:
                     prompt_length = len(prompts[i][0]) + 1
                     cutted_pred_ids.append(pred_ids[i][prompt_length:])
                     cutted_label_ids.append(label_ids[i][prompt_length:])
                 else:
-                    # Nếu không có prompt, sử dụng toàn bộ dữ liệu
                     cutted_pred_ids.append(pred_ids[i])
                     cutted_label_ids.append(label_ids[i])
             except (TypeError, IndexError) as e:
-                # Xử lý ngoại lệ, sử dụng toàn bộ dữ liệu
                 print(f"Lỗi khi xử lý prompt cho dữ liệu thứ {i}: {e}")
                 cutted_pred_ids.append(pred_ids[i])
                 cutted_label_ids.append(label_ids[i])
-    else:
-        # Nếu không có prompts, sử dụng trực tiếp pred_ids và label_ids
-        cutted_pred_ids = pred_ids
-        cutted_label_ids = label_ids
     
     for i in tqdm(range(0, len(cutted_pred_ids), batch_size)):
         batch_pred_ids = cutted_pred_ids[i:i + batch_size]
-        batch_label_ids = cutted_label_ids[i:i + batch_size]        
+        batch_label_ids = cutted_label_ids[i:i + batch_size]
 
         pre_strs = tokenizer.batch_decode(batch_pred_ids, skip_special_tokens=True)
         label_strs = tokenizer.batch_decode(batch_label_ids, skip_special_tokens=True)
@@ -209,19 +207,17 @@ def compute_wer(pred, args, prompts):
 
         for pred, label in zip(pre_strs, label_strs):
             if label != 'ignore_time_segment_in_scoring':
-                # 'ignore_time_segment_in_scoring'이 아닌 경우에만 리스트에 추가
                 filtered_pre_strs.append(normalizer(pred))
                 filtered_label_strs.append(normalizer(label))
 
-        # 최종적으로 필터링된 리스트를 다시 튜플로 변환
         if filtered_pre_strs and filtered_label_strs:
-                pre_strs, label_strs = zip(*zip(filtered_pre_strs, filtered_label_strs))
+            pre_strs, label_strs = zip(*zip(filtered_pre_strs, filtered_label_strs))
         else:
             pre_strs, label_strs = (), ()
         results.extend(zip(label_strs, pre_strs))
-        
-    # 파일에 모든 결과를 한 번에 쓰기
-    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w') as f:
+    
+    # Ghi kết quả với encoding utf-8 để xử lý ký tự Unicode
+    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w', encoding='utf-8') as f:
         for ref, pred in results:
             f.write(f'Ref:{ref}\n')
             f.write(f'Pred:{pred}\n\n')
@@ -232,7 +228,6 @@ def compute_wer(pred, args, prompts):
     total_wer = 100 * metric.compute(predictions=pre_strs, references=label_strs)
 
     return {'wer': total_wer}
-
 # def compute_wer(pred, args, prompts):
 #     pred_ids = pred.predictions
 #     label_ids = pred.label_ids

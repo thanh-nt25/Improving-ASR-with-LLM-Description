@@ -166,38 +166,87 @@ class NotebookProgressBar:
             else:
                 self.wait_for = max(int(self.update_every / self.average_time_per_item), 1)
 
-    def update_bar(self, value, comment=None):
-        if value % 200 != 0:
-            return
-        spaced_value = " " * (len(str(self.total)) - len(str(value))) + str(value)
-        if self.elapsed_time is None:
-            self.label = f"[{spaced_value}/{self.total} : < :"
-        elif self.predicted_remaining is None:
-            self.label = f"[{spaced_value}/{self.total} {format_time(self.elapsed_time)}"
-        else:
-            self.label = (
-                f"[{spaced_value}/{self.total} {format_time(self.elapsed_time)} <"
-                f" {format_time(self.predicted_remaining)}"
-            )
-            if self.average_time_per_item == 0:
-                self.label += ", +inf it/s"
-            else:
-                self.label += f", {1/self.average_time_per_item:.2f} it/s"
+    # def update_bar(self, value, comment=None):
+    #     spaced_value = " " * (len(str(self.total)) - len(str(value))) + str(value)
+    #     if self.elapsed_time is None:
+    #         self.label = f"[{spaced_value}/{self.total} : < :"
+    #     elif self.predicted_remaining is None:
+    #         self.label = f"[{spaced_value}/{self.total} {format_time(self.elapsed_time)}"
+    #     else:
+    #         self.label = (
+    #             f"[{spaced_value}/{self.total} {format_time(self.elapsed_time)} <"
+    #             f" {format_time(self.predicted_remaining)}"
+    #         )
+    #         if self.average_time_per_item == 0:
+    #             self.label += ", +inf it/s"
+    #         else:
+    #             self.label += f", {1/self.average_time_per_item:.2f} it/s"
 
+    #     self.label += "]" if self.comment is None or len(self.comment) == 0 else f", {self.comment}]"
+    #     self.display()
+
+    # def display(self):
+    #     self.html_code = html_progress_bar(self.value, self.total, self.prefix, self.label, self.width)
+    #     if self.parent is not None:
+    #         # If this is a child bar, the parent will take care of the display.
+    #         self.parent.display()
+    #         return
+    #     if self.output is None:
+    #         self.output = disp.display(disp.HTML(self.html_code), display_id=True)
+    #     else:
+    #         self.output.update(disp.HTML(self.html_code))
+    def update_bar(self, value, comment=None):
+        spaced_value = " " * (len(str(self.total)) - len(str(value))) + str(value)
+        
+        # Tính phần trăm hoàn thành
+        percent = value / self.total * 100
+        
+        # Tạo thông tin thời gian
+        time_info = ""
+        if self.elapsed_time is None:
+            time_info = ": < :"
+        elif self.predicted_remaining is None:
+            time_info = f" {format_time(self.elapsed_time)}"
+        else:
+            time_info = f" {format_time(self.elapsed_time)} < {format_time(self.predicted_remaining)}"
+            if self.average_time_per_item == 0:
+                time_info += ", +inf it/s"
+            else:
+                time_info += f", {1/self.average_time_per_item:.2f} it/s"
+        
+        # Tạo nhãn với thông tin đầy đủ
+        self.label = f"[{spaced_value}/{self.total}{time_info}"
         self.label += "]" if self.comment is None or len(self.comment) == 0 else f", {self.comment}]"
+        
+        # Cập nhật giá trị hiện tại
+        self.value = value
+        
+        # Hiển thị thanh tiến trình
         self.display()
 
     def display(self):
-        self.html_code = html_progress_bar(self.value, self.total, self.prefix, self.label, self.width)
+        # Tạo thanh tiến trình HTML
+        progress_width = int(self.width * (self.value / self.total)) if self.total > 0 else 0
+        
+        # Tạo mã HTML cho thanh tiến trình với gradient màu
+        self.html_code = f"""
+        <div style="margin-top: 5px; margin-bottom: 5px;">
+            <span style="font-family: monospace;">{self.prefix} {self.label}</span>
+            <div style="width: {self.width}px; height: 20px; background-color: #f0f0f0; border-radius: 5px; overflow: hidden; margin-top: 5px;">
+                <div style="width: {progress_width}px; height: 100%; background: linear-gradient(to right, #4CAF50, #2196F3); transition: width 0.3s;"></div>
+            </div>
+        </div>
+        """
+        
         if self.parent is not None:
             # If this is a child bar, the parent will take care of the display.
             self.parent.display()
             return
+        
         if self.output is None:
             self.output = disp.display(disp.HTML(self.html_code), display_id=True)
         else:
             self.output.update(disp.HTML(self.html_code))
-
     def close(self):
         "Closes the progress bar."
         if self.parent is None and self.output is not None:
@@ -311,17 +360,42 @@ class NotebookProgressCallback(TrainerCallback):
         )
         self._force_next_update = False
 
+    # def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
+    #     if not has_length(eval_dataloader):
+    #         return
+    #     if self.prediction_bar is None:
+    #         if self.training_tracker is not None:
+    #             self.prediction_bar = self.training_tracker.add_child(len(eval_dataloader))
+    #         else:
+    #             self.prediction_bar = NotebookProgressBar(len(eval_dataloader))
+    #         self.prediction_bar.update(1)
+    #     else:
+    #         self.prediction_bar.update(self.prediction_bar.value + 1)
     def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
-        if not has_length(eval_dataloader):
-            return
-        if self.prediction_bar is None:
-            if self.training_tracker is not None:
-                self.prediction_bar = self.training_tracker.add_child(len(eval_dataloader))
-            else:
-                self.prediction_bar = NotebookProgressBar(len(eval_dataloader))
-            self.prediction_bar.update(1)
-        else:
-            self.prediction_bar.update(self.prediction_bar.value + 1)
+      if not has_length(eval_dataloader):
+          return
+      
+      # Tính toán số lượng dòng cần hiển thị
+      total_steps = len(eval_dataloader)
+      # Chỉ muốn hiển thị khoảng 44 dòng (1% của 4404)
+      display_interval = max(1, total_steps // 44)
+      
+      if self.prediction_bar is None:
+          if self.training_tracker is not None:
+              self.prediction_bar = self.training_tracker.add_child(total_steps)
+          else:
+              self.prediction_bar = NotebookProgressBar(total_steps)
+          # Cập nhật giá trị đầu tiên
+          self.prediction_bar.update(1)
+      else:
+          current_value = self.prediction_bar.value
+          # Chỉ cập nhật hiển thị nếu đạt đến một số chia hết cho display_interval
+          # hoặc là bước cuối cùng
+          if (current_value + 1) % display_interval == 0 or current_value + 1 == total_steps:
+              self.prediction_bar.update(current_value + 1)
+          else:
+              # Vẫn tăng giá trị nhưng không cập nhật hiển thị
+              self.prediction_bar.value += 1
 
     def on_predict(self, args, state, control, **kwargs):
         if self.prediction_bar is not None:

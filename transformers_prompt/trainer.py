@@ -2323,7 +2323,8 @@ class Trainer:
                 )
                 return
 
-        checkpoint_rng_state = torch.load(rng_file)
+        # checkpoint_rng_state = torch.load(rng_file)
+        checkpoint_rng_state = torch.load(rng_file, weights_only=False)
         random.setstate(checkpoint_rng_state["python"])
         np.random.set_state(checkpoint_rng_state["numpy"])
         torch.random.set_rng_state(checkpoint_rng_state["cpu"])
