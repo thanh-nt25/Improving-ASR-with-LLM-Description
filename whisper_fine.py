@@ -92,21 +92,30 @@ if __name__ == '__main__':
 
     # load model - Check if resuming from checkpoint
     checkpoint_path = None
+    # Thay đổi phần load checkpoint
     if args.resume:
         if args.checkpoint_path:
-            checkpoint_path = args.checkpoint_path
-            print(f"Resuming from specified checkpoint: {checkpoint_path}")
-        elif args.save_hf and args.hf_repo:
-            checkpoint_path = args.hf_repo
-            print(f"Resuming from HF Hub checkpoint: {checkpoint_path}")
-        else:
-            # Look for local checkpoint in Kaggle environment
-            checkpoint_dir = os.path.join("/kaggle/working", "results" if args.dataset == 'earning' else "results_ocw", args.exp_name)
-            if os.path.exists(checkpoint_dir):
-                checkpoint_path = checkpoint_dir
-                print(f"Resuming from local checkpoint: {checkpoint_path}")
-            else:
-                print("No checkpoint found. Starting from scratch.")
+            try:
+                # Thử load từ đường dẫn cụ thể 
+                model = WhisperPromptForConditionalGeneration.from_pretrained(
+                    args.checkpoint_path, 
+                    local_files_only=False  # Cho phép tải từ internet
+                )
+                print(f"Successfully loaded model from {args.checkpoint_path}")
+            except Exception as e:
+                print(f"Error loading specific checkpoint: {e}")
+                print("Falling back to the main repository")
+                
+                # Nếu load checkpoint riêng lẻ thất bại, thử load từ repository chính
+                try:
+                    model = WhisperPromptForConditionalGeneration.from_pretrained(
+                        f"thanh-nt25/whisper-earning", 
+                        local_files_only=False
+                    )
+                except Exception as e:
+                    print(f"Error loading main repository: {e}")
+                    print("Falling back to original model")
+                    model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
     
     if args.prompt:
         if args.eval and args.checkpoint_path:
