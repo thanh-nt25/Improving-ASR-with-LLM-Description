@@ -185,11 +185,11 @@ if __name__ == '__main__':
     hub_strategy = "every_save" if args.save_hf else None
     
     training_args = Seq2SeqTrainingArguments(
-        output_dir=args.hf_repo if args.save_hf else None,  
+        output_dir=f"{args.hf_repo}/checkpoint" if args.save_hf else None,  
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
         push_to_hub=args.save_hf,
-        save_strategy="epoch",
+        save_strategy=eval_step, # eval steps
         weight_decay=0.01,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
@@ -200,7 +200,7 @@ if __name__ == '__main__':
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=32, # Điều chỉnh batch size nếu cần
+        per_device_eval_batch_size=256, # Điều chỉnh batch size nếu cần
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
