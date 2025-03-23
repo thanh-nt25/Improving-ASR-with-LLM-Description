@@ -156,13 +156,13 @@ if __name__ == '__main__':
     model.config.suppress_tokens = []
     
     # Thư mục đầu ra trên Kaggle
-    root_path = "/kaggle/working"
-    if args.dataset == 'earning':
-        output_dir = os.path.join(root_path, "results", args.exp_name)
-    else:
-        output_dir = os.path.join(root_path, "results_ocw", args.exp_name)
+    # root_path = "/kaggle/working"
+    # if args.dataset == 'earning':
+    #     output_dir = os.path.join(root_path, "results", args.exp_name)
+    # else:
+    #     output_dir = os.path.join(root_path, "results_ocw", args.exp_name)
     
-    os.makedirs(output_dir, exist_ok=True)
+    # os.makedirs(output_dir, exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
@@ -189,6 +189,7 @@ if __name__ == '__main__':
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
         push_to_hub=args.save_hf,
+        save_strategy="epoch",
         weight_decay=0.01,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
