@@ -13,7 +13,8 @@ from transformers.trainer_callback import TrainerCallback
 from utils_prompt import compute_wer, compute_wer_ocw, DataCollatorSpeechS2SWhitPadding
 from data.dataloader import PromptWhisperDataset
 import os
-from huggingface_hub import login
+import json
+from huggingface_hub import login, HfApi
 import argparse
 torch.manual_seed(1004)
 torch.cuda.manual_seed_all(1004)
@@ -66,6 +67,7 @@ if __name__ == '__main__':
             args.hf_repo = f"{os.environ.get('HUGGINGFACE_USERNAME', 'user')}/whisper-{args.model}-{args.dataset}"
             print(f"No repository name specified, using: {args.hf_repo}")
     print(f"save_hf: {args.save_hf}, hf_repo: {args.hf_repo}")
+    
     # prepare feature extractor, tokenizer
     feature_extractor = WhisperFeatureExtractor.from_pretrained(f'openai/whisper-{args.model}')
     tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
@@ -74,19 +76,17 @@ if __name__ == '__main__':
     # data collator  
     data_collator = DataCollatorSpeechS2SWhitPadding(processor=processor)
     
-    # data_root = "/data/jwsuh/whisper-datasets/main"
-    data_root = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description"
+    # Đường dẫn đến dữ liệu trên Kaggle
+    data_root = "/kaggle/input/ocw-biasing"
     
     if args.dataset == 'earning':
         data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, random=args.random)
         data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
         data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-
     elif args.dataset == 'ocw':
         data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
         data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
         data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-
     else:
         raise ValueError("Wrong dataset")
 
@@ -100,13 +100,8 @@ if __name__ == '__main__':
             checkpoint_path = args.hf_repo
             print(f"Resuming from HF Hub checkpoint: {checkpoint_path}")
         else:
-            # Look for local checkpoint
-            root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/"
-            if args.dataset == 'earning':
-              checkpoint_dir = os.path.join(root_path, "results", args.exp_name)
-            else:
-              checkpoint_dir = os.path.join(root_path, "results_ocw", args.exp_name)
-
+            # Look for local checkpoint in Kaggle environment
+            checkpoint_dir = os.path.join("/kaggle/working", "results" if args.dataset == 'earning' else "results_ocw", args.exp_name)
             if os.path.exists(checkpoint_dir):
                 checkpoint_path = checkpoint_dir
                 print(f"Resuming from local checkpoint: {checkpoint_path}")
@@ -151,12 +146,14 @@ if __name__ == '__main__':
     model.config.forced_decoder_ids = None
     model.config.suppress_tokens = []
     
-    #root_path = "results/"
-    root_path = "/content/drive/MyDrive/Thesis/Improving-ASR-with-LLM-Description/"
+    # Thư mục đầu ra trên Kaggle
+    root_path = "/kaggle/working"
     if args.dataset == 'earning':
-      os.makedirs(os.path.join(root_path, "results", args.exp_name), exist_ok=True)
+        output_dir = os.path.join(root_path, "results", args.exp_name)
     else:
-      os.makedirs(os.path.join(root_path, "results_ocw", args.exp_name), exist_ok=True)
+        output_dir = os.path.join(root_path, "results_ocw", args.exp_name)
+    
+    os.makedirs(output_dir, exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
@@ -179,21 +176,21 @@ if __name__ == '__main__':
     hub_strategy = "every_save" if args.save_hf else None
     
     training_args = Seq2SeqTrainingArguments(
-        weight_decay=0.01,
-        output_dir=os.path.join(root_path, "results", args.exp_name),
+        output_dir=output_dir,  # Đảm bảo lưu trữ mô hình trong thư mục output_dir
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
-        push_to_hub=True,
+        push_to_hub=args.save_hf,
+        weight_decay=0.01,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
-        gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
+        gradient_accumulation_steps=1,  
         learning_rate=args.lr,
         warmup_steps=100,
         max_steps=iteration_steps,
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=256,
+        per_device_eval_batch_size=32, # Điều chỉnh batch size nếu cần
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
@@ -211,54 +208,28 @@ if __name__ == '__main__':
     print(f"hub_model_id: {training_args.hub_model_id}")
     print(f"hub_strategy: {training_args.hub_strategy}")
     print(f"push_to_hub: {training_args.push_to_hub}")
-
-    # class CustomProgressCallback(TrainerCallback):
-    #   def __init__(self):
-    #       self.prediction_bar = None
-    #       self.last_updated_step = 0
-          
-    #   def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
-    #       if not hasattr(eval_dataloader, "__len__"):
-    #           return
-              
-    #       total_steps = len(eval_dataloader)
-    #       # Chỉ hiển thị 10 cập nhật trong toàn bộ quá trình
-    #       display_interval = max(1, total_steps // 10)
-          
-    #       current_step = self.last_updated_step + 1
-    #       self.last_updated_step = current_step
-          
-    #       # Chỉ hiển thị tại một số điểm nhất định
-    #       if current_step == 1 or current_step == total_steps or current_step % display_interval == 0:
-    #           print(f"\rEvaluation: {current_step}/{total_steps} ({(current_step/total_steps*100):.1f}%)", end="")
-            
-    #   def on_evaluate(self, args, state, control, **kwargs):
-    #       print("\nEvaluation completed.")
-    #       self.last_updated_step = 0
-
+    print(f"output_dir: {training_args.output_dir}")
 
     if args.dataset == 'earning':
-      trainer = Seq2SeqTrainer(
-        args=training_args,
-        model=model,
-        train_dataset=data_train,
-        eval_dataset=data_eval,
-        data_collator=data_collator,
-        compute_metrics=compute_wer,
-        tokenizer=processor.feature_extractor,
-        # callbacks=[CustomProgressCallback()]
-      )
+        trainer = Seq2SeqTrainer(
+            args=training_args,
+            model=model,
+            train_dataset=data_train,
+            eval_dataset=data_eval,
+            data_collator=data_collator,
+            compute_metrics=compute_wer,
+            tokenizer=processor.feature_extractor,
+        )
     else:
-      trainer = Seq2SeqTrainer(
-          args=training_args,
-          model=model,
-          train_dataset=data_train,
-          eval_dataset=data_eval,
-          data_collator=data_collator,
-          compute_metrics=compute_wer_ocw,
-          tokenizer=processor.feature_extractor,
-          # callbacks=[CustomProgressCallback()]
-      )
+        trainer = Seq2SeqTrainer(
+            args=training_args,
+            model=model,
+            train_dataset=data_train,
+            eval_dataset=data_eval,
+            data_collator=data_collator,
+            compute_metrics=compute_wer_ocw,
+            tokenizer=processor.feature_extractor,
+        )
 
     if not args.eval:
         print("Start Training!")
@@ -268,8 +239,8 @@ if __name__ == '__main__':
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)
         
         # Save final model
-        trainer.save_model()
-        processor.save_pretrained(training_args.output_dir)
+        trainer.save_model(output_dir)
+        processor.save_pretrained(output_dir)
         
         # Push to hub if requested
         if args.save_hf and args.hf_repo:
@@ -279,9 +250,117 @@ if __name__ == '__main__':
     print("Start Evaluation!!")
     if args.prompt:
         print("Using prompt")
-    result = trainer.evaluate(data_test)
-    print(result)
     
-    # print results
-    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-        t.write(str(result))
+    # Run evaluation on test set
+    test_results = trainer.evaluate(data_test)
+    print(test_results)
+    
+    # Save test results locally
+    with open(os.path.join(output_dir, 'test_results.txt'), 'w') as t:
+        t.write(str(test_results))
+    
+    # Save test results in JSON format for easier parsing
+    with open(os.path.join(output_dir, 'test_results.json'), 'w') as f:
+        json.dump(test_results, f, indent=4)
+    
+    # If saving to HuggingFace Hub, add the test metrics
+    if args.save_hf and args.hf_repo:
+        try:
+            # Create a model card with test metrics or update existing one
+            model_card_content = f"""---
+language: en
+license: apache-2.0
+datasets:
+- {args.dataset}
+metrics:
+- wer
+model-index:
+- name: whisper-{args.model}-{args.dataset}
+  results:
+  - task: 
+      name: Automatic Speech Recognition
+      type: automatic-speech-recognition
+    dataset:
+      name: {args.dataset} test
+      type: {args.dataset}
+    metrics:
+    - name: WER
+      type: wer
+      value: {test_results.get('wer', 'N/A')}
+tags:
+- whisper
+- asr
+- speech
+- audio
+- {args.dataset}
+---
+
+# Whisper Fine-tuned Model
+
+This model is a fine-tuned version of [`openai/whisper-{args.model}`] on the {args.dataset} dataset.
+
+## Test Results
+
+- eval_loss: {test_results.get('eval_loss', 'N/A')}
+- eval_wer: {test_results.get('wer', 'N/A')}
+- eval_runtime: {test_results.get('eval_runtime', 'N/A')}
+- eval_samples_per_second: {test_results.get('eval_samples_per_second', 'N/A')}
+
+## Training Parameters
+
+- Model: whisper-{args.model}
+- Dataset: {args.dataset}
+- Prompt: {args.prompt}
+- Learning Rate: {args.lr}
+- Batch Size: {args.batch}
+- Epochs: {args.epoch}
+- Frozen: {args.freeze}
+"""
+
+            # Path to save the README.md file locally
+            readme_path = os.path.join(output_dir, "README.md")
+            with open(readme_path, "w") as f:
+                f.write(model_card_content)
+            
+            # Create a metadata file with the test metrics
+            metadata = {
+                "test_metrics": {
+                    "eval_loss": float(test_results.get('eval_loss', 0)),
+                    "eval_wer": float(test_results.get('wer', 0)),
+                    "eval_runtime": float(test_results.get('eval_runtime', 0)),
+                    "eval_samples_per_second": float(test_results.get('eval_samples_per_second', 0))
+                },
+                "training_params": {
+                    "model": args.model,
+                    "dataset": args.dataset,
+                    "prompt": args.prompt,
+                    "batch_size": args.batch,
+                    "learning_rate": args.lr,
+                    "epochs": args.epoch,
+                    "frozen": args.freeze
+                }
+            }
+            
+            metadata_path = os.path.join(output_dir, "test_metrics.json")
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f, indent=4)
+                
+            # Push these files to the Hub
+            if args.save_hf and args.hf_repo:
+                print("Pushing test metrics and README to Hugging Face Hub...")
+                api = HfApi()
+                api.upload_file(
+                    path_or_fileobj=readme_path,
+                    path_in_repo="README.md",
+                    repo_id=args.hf_repo,
+                    repo_type="model"
+                )
+                api.upload_file(
+                    path_or_fileobj=metadata_path,
+                    path_in_repo="test_metrics.json",
+                    repo_id=args.hf_repo,
+                    repo_type="model"
+                )
+                print("Test metrics successfully uploaded to Hugging Face Hub!")
+        except Exception as e:
+            print(f"Error uploading test metrics to Hugging Face Hub: {e}")
