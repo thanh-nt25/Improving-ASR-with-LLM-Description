@@ -176,7 +176,7 @@ if __name__ == '__main__':
     hub_strategy = "every_save" if args.save_hf else None
     
     training_args = Seq2SeqTrainingArguments(
-        output_dir=output_dir,  # Đảm bảo lưu trữ mô hình trong thư mục output_dir
+        output_dir=args.hf_repo if args.save_hf else None,  
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
         push_to_hub=args.save_hf,
