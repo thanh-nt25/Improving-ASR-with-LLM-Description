@@ -189,7 +189,7 @@ if __name__ == '__main__':
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
         push_to_hub=args.save_hf,
-        save_strategy=eval_step, # eval steps
+        save_strategy=steps, # eval steps
         weight_decay=0.01,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
