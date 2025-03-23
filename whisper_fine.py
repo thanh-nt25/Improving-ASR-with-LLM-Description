@@ -200,7 +200,7 @@ if __name__ == '__main__':
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=256, # Điều chỉnh batch size nếu cần
+        per_device_eval_batch_size=32, # Điều chỉnh batch size nếu cần
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
