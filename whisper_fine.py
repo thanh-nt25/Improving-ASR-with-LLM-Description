@@ -31,7 +31,7 @@ if __name__ == '__main__':
     #     pass
     parser = argparse.ArgumentParser(description='whisper prompt tuning')
 
-    parser.add_argument('--exp-name', type=str, default="test", help="path to save result")
+    # parser.add_argument('--exp-name', type=str, default="test", help="path to save result")
     parser.add_argument('--model', type=str, default="base.en", help="path to save result")
     parser.add_argument('--batch', type=int, default=2, help="batch size")
     parser.add_argument('--epoch', type=int, default=10, help="batch size")
@@ -225,36 +225,65 @@ if __name__ == '__main__':
     print(f"output_dir: {training_args.output_dir}")
 
     class HuggingFaceHubCallback(TrainerCallback):
-      def __init__(self, hub_repo):
-          self.hub_repo = hub_repo
-          self.api = HfApi()
+        def __init__(self, hub_repo):
+            self.hub_repo = hub_repo
+            self.api = HfApi()
+            self.uploaded_checkpoints = set()  # Theo dõi các checkpoint đã upload
 
-      def on_save(self, args, state, control, **kwargs):
-          # Tìm checkpoint mới nhất trong thư mục output
-          checkpoints = [
-              d for d in os.listdir(args.output_dir) 
-              if d.startswith('checkpoint-')
-          ]
-          
-          if not checkpoints:
-              print("No checkpoints found to push")
-              return
+        def on_save(self, args, state, control, **kwargs):
+            # Tìm tất cả các checkpoint trong thư mục output
+            checkpoints = [
+                d for d in os.listdir(args.output_dir) 
+                if d.startswith('checkpoint-')
+            ]
+            
+            if not checkpoints:
+                print("No checkpoints found to push")
+                return
 
-          # Sắp xếp và lấy checkpoint mới nhất
-          latest_checkpoint = sorted(checkpoints, key=lambda x: int(x.split('-')[1]))[-1]
-          checkpoint_path = os.path.join(args.output_dir, latest_checkpoint)
-
-          try:
-              # Upload checkpoint vào thư mục checkpoint/ của repo
-              self.api.upload_folder(
-                  folder_path=checkpoint_path,
-                  path_in_repo=f"checkpoint/{latest_checkpoint}",
-                  repo_id=self.hub_repo,
-                  repo_type="model"
-              )
-              print(f"Pushed {latest_checkpoint} to {self.hub_repo}/checkpoint/")
-          except Exception as e:
-              print(f"Error pushing checkpoint to Hugging Face Hub: {e}")
+            try:
+                # Upload các checkpoint vào thư mục checkpoints/
+                for checkpoint in checkpoints:
+                    # Chỉ upload checkpoint nếu chưa được upload trước đó
+                    if checkpoint not in self.uploaded_checkpoints:
+                        checkpoint_path = os.path.join(args.output_dir, checkpoint)
+                        self.api.upload_folder(
+                            folder_path=checkpoint_path,
+                            path_in_repo=f"checkpoints/{checkpoint}",
+                            repo_id=self.hub_repo,
+                            repo_type="model"
+                        )
+                        self.uploaded_checkpoints.add(checkpoint)
+                        print(f"Pushed {checkpoint} to {self.hub_repo}/checkpoints/")
+                
+                # Các file thường được push_to_hub=True tự động xử lý
+                standard_files = [
+                    "config.json", "pytorch_model.bin", "training_args.bin", 
+                    "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json",
+                    "vocab.json", "merges.txt", "tokenizer.model", "added_tokens.json",
+                    "model.safetensors", "optimizer.pt", "scheduler.pt", "scaler.pt",
+                    "trainer_state.json", "README.md"
+                ]
+                
+                # Upload các file không phải là file tiêu chuẩn hoặc checkpoint
+                for item in os.listdir(args.output_dir):
+                    item_path = os.path.join(args.output_dir, item)
+                    # Chỉ upload file không thuộc danh sách tiêu chuẩn và không phải thư mục checkpoint
+                    if os.path.isfile(item_path) and not item.startswith('.') and item not in standard_files:
+                        try:
+                            self.api.upload_file(
+                                path_or_fileobj=item_path,
+                                path_in_repo=item,
+                                repo_id=self.hub_repo,
+                                repo_type="model"
+                            )
+                            print(f"Pushed additional file {item} to root")
+                        except Exception as e:
+                            print(f"Error uploading file {item}: {e}")
+                
+                print(f"Successfully pushed checkpoint folders and non-standard files")
+            except Exception as e:
+                print(f"Error in main push operation: {e}")
 
     # Trong phần khởi tạo Trainer
     hf_hub_callback = HuggingFaceHubCallback(hub_repo=args.hf_repo) if args.save_hf else None
