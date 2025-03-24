@@ -3,6 +3,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+import re
 import traceback
 import numpy as np
 import torch.serialization
@@ -71,108 +72,102 @@ if __name__ == '__main__':
             args.hf_repo = f"{os.environ.get('HUGGINGFACE_USERNAME', 'user')}/whisper-{args.model}-{args.dataset}"
             print(f"No repository name specified, using: {args.hf_repo}")
     print(f"save_hf: {args.save_hf}, hf_repo: {args.hf_repo}")
-    
-    # prepare feature extractor, tokenizer
-    feature_extractor = WhisperFeatureExtractor.from_pretrained(f'openai/whisper-{args.model}')
-    tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
-    processor = WhisperProcessor.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
 
-    # data collator  
-    data_collator = DataCollatorSpeechS2SWhitPadding(processor=processor)
-    
-    # Đường dẫn đến dữ liệu trên Kaggle
-    data_root = "/kaggle/input/ocw-biasing"
-    
-    if args.dataset == 'earning':
-        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, random=args.random)
-        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-    elif args.dataset == 'ocw':
-        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
-        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
-    else:
-        raise ValueError("Wrong dataset")
-
-    checkpoint_path = None
     def download_latest_checkpoint(repo_id):
         """
         Tải checkpoint mới nhất từ Hugging Face về local
         """
         try:
             api = HfApi()
-            # Lấy danh sách tất cả các checkpoint trong thư mục checkpoints
+            # Lấy toàn bộ file trong repository
+            all_files = api.list_repo_files(repo_id)
+            
+            # Lọc ra các checkpoint
             checkpoints = [
-                f for f in api.list_repo_files(repo_id)
-                if f.startswith("checkpoints/checkpoint-") and f.endswith("/")
+                f for f in all_files 
+                if re.search(r'checkpoints/checkpoint-\d+(/.*)?$', f)
             ]
             
             # Sắp xếp và lấy checkpoint mới nhất
             if not checkpoints:
-                raise ValueError("Không tìm thấy checkpoint nào.")
+                raise ValueError(f"Không tìm thấy checkpoint nào trong repository {repo_id}")
             
-            latest_checkpoint = sorted(checkpoints, key=lambda x: int(x.split('-')[-1].strip('/')), reverse=True)[0]
+            # Sắp xếp checkpoint theo số thứ tự giảm dần
+            sorted_checkpoints = sorted(
+                checkpoints, 
+                key=lambda x: int(re.search(r'checkpoint-(\d+)', x).group(1)), 
+                reverse=True
+            )
             
-            # Tải các file cần thiết của checkpoint
-            files_to_download = [
-                'config.json', 
-                'pytorch_model.bin', 
-                'model.safetensors',  # Thêm file này nếu có
-                'training_args.bin',
-                # Thêm các file khác nếu cần
-            ]
-            
-            # Thư mục lưu checkpoint local
-            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", latest_checkpoint.strip('/'))
-            os.makedirs(local_checkpoint_dir, exist_ok=True)
-            
-            # Tải từng file
-            for file in files_to_download:
-                try:
-                    hf_hub_download(
-                        repo_id=repo_id, 
-                        filename=os.path.join(latest_checkpoint, file),
-                        local_dir=local_checkpoint_dir,
-                        local_dir_use_symlinks=False
-                    )
-                except Exception as e:
-                    print(f"Không thể tải file {file}: {e}")
-            
-            print(f"Đã tải checkpoint mới nhất: {latest_checkpoint}")
-            return local_checkpoint_dir
-        
-        except Exception as e:
-            print(f"Lỗi khi tải checkpoint: {e}")
-            traceback.print_exc()
-            raise  # Ném lại exception để xử lý ở ngoài
-
-    def download_specific_checkpoint(repo_id, checkpoint_path):
-        """
-        Tải checkpoint cụ thể từ Hugging Face về local
-        """
-        try:
-            # Trích xuất tên checkpoint từ đường dẫn đầy đủ
-            checkpoint_name = checkpoint_path.split('/')[-1]
+            latest_checkpoint = sorted_checkpoints[0]
+            # Tìm thư mục checkpoint (loại bỏ phần file cụ thể)
+            checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             
             # Thư mục lưu checkpoint local
-            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_name)
+            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_folder.replace('/', '_'))
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
             # Các file cần tải
             files_to_download = [
                 'config.json', 
                 'pytorch_model.bin', 
-                'model.safetensors',  # Thêm file này nếu có
+                'model.safetensors',
                 'training_args.bin',
-                # Thêm các file khác nếu cần
             ]
             
             # Tải từng file
             for file in files_to_download:
                 try:
+                    full_file_path = os.path.join(checkpoint_folder, file)
                     hf_hub_download(
                         repo_id=repo_id, 
-                        filename=os.path.join(checkpoint_path, file),
+                        filename=full_file_path,
+                        local_dir=local_checkpoint_dir,
+                        local_dir_use_symlinks=False
+                    )
+                except Exception as e:
+                    print(f"Không thể tải file {file}: {e}")
+            
+            print(f"Đã tải checkpoint mới nhất: {checkpoint_folder}")
+            return local_checkpoint_dir
+        
+        except Exception as e:
+            print(f"Lỗi khi tải checkpoint: {e}")
+            traceback.print_exc()
+            raise
+
+    def download_specific_checkpoint(repo_id, checkpoint_path):
+        """
+        Tải checkpoint cụ thể từ Hugging Face về local
+        """
+        try:
+            api = HfApi()
+            # Kiểm tra checkpoint có tồn tại không
+            all_files = api.list_repo_files(repo_id)
+            
+            # Kiểm tra xem checkpoint có tồn tại không
+            if not any(checkpoint_path in f for f in all_files):
+                raise ValueError(f"Không tìm thấy checkpoint {checkpoint_path}")
+            
+            # Thư mục lưu checkpoint local
+            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_path.replace('/', '_'))
+            os.makedirs(local_checkpoint_dir, exist_ok=True)
+            
+            # Các file cần tải
+            files_to_download = [
+                'config.json', 
+                'pytorch_model.bin', 
+                'model.safetensors',
+                'training_args.bin',
+            ]
+            
+            # Tải từng file
+            for file in files_to_download:
+                try:
+                    full_file_path = os.path.join(checkpoint_path, file)
+                    hf_hub_download(
+                        repo_id=repo_id, 
+                        filename=full_file_path,
                         local_dir=local_checkpoint_dir,
                         local_dir_use_symlinks=False
                     )
@@ -185,8 +180,7 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
             traceback.print_exc()
-            return None
-    # Trong phần load checkpoint của script chính
+            raise
     if args.resume:
         try:
             # Trường hợp 1: Chỉ có --resume, tải checkpoint mới nhất
@@ -252,6 +246,28 @@ if __name__ == '__main__':
     else:
         print("Prompt must be used.")
         raise(ValueError)
+    
+    # prepare feature extractor, tokenizer
+    feature_extractor = WhisperFeatureExtractor.from_pretrained(f'openai/whisper-{args.model}')
+    tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
+    processor = WhisperProcessor.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
+
+    # data collator  
+    data_collator = DataCollatorSpeechS2SWhitPadding(processor=processor)
+    
+    # Đường dẫn đến dữ liệu trên Kaggle
+    data_root = "/kaggle/input/ocw-biasing"
+    
+    if args.dataset == 'earning':
+        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, random=args.random)
+        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+    elif args.dataset == 'ocw':
+        data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
+        data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+        data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+    else:
+        raise ValueError("Wrong dataset")
     
     model.to(device)
 
