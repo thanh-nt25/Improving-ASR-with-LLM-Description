@@ -215,16 +215,8 @@ if __name__ == '__main__':
             if not args.checkpoint_path:
                 checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
             else:
-                # Tách repo_id và checkpoint path
-                parts = args.checkpoint_path.split('/checkpoints/')
-                if len(parts) == 2:
-                    repo_id = parts[0]
-                    checkpoint_path = f"checkpoints/{parts[1]}"
-                    checkpoint_dir = download_specific_checkpoint(repo_id, checkpoint_path)
-                else:
-                    raise ValueError("Invalid checkpoint path format")
+                checkpoint_dir = download_specific_checkpoint(args.checkpoint_path)
             
-            # Load model từ checkpoint đã tải
             model = WhisperPromptForConditionalGeneration.from_pretrained(
                 checkpoint_dir, 
                 local_files_only=True
