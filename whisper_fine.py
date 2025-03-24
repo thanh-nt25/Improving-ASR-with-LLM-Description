@@ -116,9 +116,15 @@ if __name__ == '__main__':
             # Các file cần tải
             files_to_download = [
                 'config.json', 
-                'pytorch_model.bin', 
+                'generation_config.json', 
                 'model.safetensors',
                 'training_args.bin',
+                'optimizer.pt',
+                'preprocessor_config.json',
+                'rng_state.pth',
+                'scheduler.pt',
+                'trainer_state.json'
+
             ]
             
             # Tải từng file
