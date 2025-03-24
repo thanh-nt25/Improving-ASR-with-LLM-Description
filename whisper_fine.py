@@ -434,7 +434,7 @@ if __name__ == '__main__':
         print("Start Training!")
         
         # Resume from checkpoint if specified
-        resume_from_checkpoint = checkpoint_path if args.resume else None
+        resume_from_checkpoint = args.checkpoint_path if args.resume else None
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)
         
         # Save final model
