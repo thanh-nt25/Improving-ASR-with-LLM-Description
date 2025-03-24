@@ -3,6 +3,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+import traceback
 import numpy as np
 import torch.serialization
 torch.serialization.add_safe_globals([np._core.multiarray._reconstruct])
@@ -10,7 +11,7 @@ torch.serialization.add_safe_globals([np._core.multiarray._reconstruct])
 from datasets import Audio
 import torch
 from transformers import TrainerCallback
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, hf_hub_download
 from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperPromptForConditionalGeneration, GenerationConfig, WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
 from transformers.trainer_callback import TrainerCallback
 from utils_prompt import compute_wer, compute_wer_ocw, DataCollatorSpeechS2SWhitPadding
@@ -93,32 +94,142 @@ if __name__ == '__main__':
     else:
         raise ValueError("Wrong dataset")
 
-    # load model - Check if resuming from checkpoint
     checkpoint_path = None
-    # Thay đổi phần load checkpoint
-    if args.resume:
-        if args.checkpoint_path:
-            try:
-                # Thử load từ đường dẫn cụ thể 
-                model = WhisperPromptForConditionalGeneration.from_pretrained(
-                    args.checkpoint_path, 
-                    local_files_only=False  # Cho phép tải từ internet
-                )
-                print(f"Successfully loaded model from {args.checkpoint_path}")
-            except Exception as e:
-                print(f"Error loading specific checkpoint: {e}")
-                print("Falling back to the main repository")
-                
-                # Nếu load checkpoint riêng lẻ thất bại, thử load từ repository chính
+    def download_latest_checkpoint(repo_id):
+        """
+        Tải checkpoint mới nhất từ Hugging Face về local
+        """
+        try:
+            api = HfApi()
+            # Lấy danh sách tất cả các checkpoint trong thư mục checkpoints
+            checkpoints = [
+                f for f in api.list_repo_files(repo_id, path="checkpoints")
+                if f.startswith("checkpoints/checkpoint-") and f.endswith("/")
+            ]
+            
+            # Sắp xếp và lấy checkpoint mới nhất
+            if not checkpoints:
+                print("Không tìm thấy checkpoint nào.")
+                return None
+            
+            latest_checkpoint = sorted(checkpoints, key=lambda x: int(x.split('-')[-1].strip('/')), reverse=True)[0]
+            
+            # Tải các file cần thiết của checkpoint
+            files_to_download = [
+                'config.json', 
+                'pytorch_model.bin', 
+                'model.safetensors',  # Thêm file này nếu có
+                'training_args.bin',
+                # Thêm các file khác nếu cần
+            ]
+            
+            # Thư mục lưu checkpoint local
+            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", latest_checkpoint.strip('/'))
+            os.makedirs(local_checkpoint_dir, exist_ok=True)
+            
+            # Tải từng file
+            for file in files_to_download:
                 try:
-                    model = WhisperPromptForConditionalGeneration.from_pretrained(
-                        f"thanh-nt25/whisper-earning", 
-                        local_files_only=False
+                    hf_hub_download(
+                        repo_id=repo_id, 
+                        filename=os.path.join(latest_checkpoint, file),
+                        local_dir=local_checkpoint_dir,
+                        local_dir_use_symlinks=False
                     )
                 except Exception as e:
-                    print(f"Error loading main repository: {e}")
-                    print("Falling back to original model")
+                    print(f"Không thể tải file {file}: {e}")
+            
+            print(f"Đã tải checkpoint mới nhất: {latest_checkpoint}")
+            return local_checkpoint_dir
+        
+        except Exception as e:
+            print(f"Lỗi khi tải checkpoint: {e}")
+            traceback.print_exc()
+            return None
+
+    def download_specific_checkpoint(repo_id, checkpoint_path):
+        """
+        Tải checkpoint cụ thể từ Hugging Face về local
+        """
+        try:
+            # Trích xuất tên checkpoint từ đường dẫn đầy đủ
+            checkpoint_name = checkpoint_path.split('/')[-1]
+            
+            # Thư mục lưu checkpoint local
+            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_name)
+            os.makedirs(local_checkpoint_dir, exist_ok=True)
+            
+            # Các file cần tải
+            files_to_download = [
+                'config.json', 
+                'pytorch_model.bin', 
+                'model.safetensors',  # Thêm file này nếu có
+                'training_args.bin',
+                # Thêm các file khác nếu cần
+            ]
+            
+            # Tải từng file
+            for file in files_to_download:
+                try:
+                    hf_hub_download(
+                        repo_id=repo_id, 
+                        filename=os.path.join(checkpoint_path, file),
+                        local_dir=local_checkpoint_dir,
+                        local_dir_use_symlinks=False
+                    )
+                except Exception as e:
+                    print(f"Không thể tải file {file}: {e}")
+            
+            print(f"Đã tải checkpoint cụ thể: {checkpoint_path}")
+            return local_checkpoint_dir
+        
+        except Exception as e:
+            print(f"Lỗi khi tải checkpoint cụ thể: {e}")
+            traceback.print_exc()
+            return None
+
+    # Trong phần load checkpoint của script chính
+    if args.resume:
+        try:
+            # Trường hợp 1: Chỉ có --resume, tải checkpoint mới nhất
+            if not args.checkpoint_path:
+                checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
+                if checkpoint_dir:
+                    model = WhisperPromptForConditionalGeneration.from_pretrained(
+                        checkpoint_dir, 
+                        local_files_only=True
+                    )
+                    print(f"Loaded latest checkpoint from {checkpoint_dir}")
+                else:
+                    # Fallback về model gốc nếu không tải được checkpoint
                     model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+            
+            # Trường hợp 2: Có --resume và --checkpoint-path
+            else:
+                # Tách repo_id và checkpoint path
+                parts = args.checkpoint_path.split('/checkpoints/')
+                if len(parts) == 2:
+                    repo_id = parts[0]
+                    checkpoint_path = f"checkpoints/{parts[1]}"
+                    
+                    checkpoint_dir = download_specific_checkpoint(repo_id, checkpoint_path)
+                    if checkpoint_dir:
+                        model = WhisperPromptForConditionalGeneration.from_pretrained(
+                            checkpoint_dir, 
+                            local_files_only=True
+                        )
+                        print(f"Loaded specific checkpoint from {checkpoint_dir}")
+                    else:
+                        # Fallback về model gốc nếu không tải được checkpoint
+                        model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+                else:
+                    print("Định dạng checkpoint không hợp lệ")
+                    model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+        
+        except Exception as e:
+            print(f"Lỗi trong quá trình load checkpoint: {e}")
+            traceback.print_exc()
+            model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')    
     
     if args.prompt:
         if args.eval and args.checkpoint_path:
