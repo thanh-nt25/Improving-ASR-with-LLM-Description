@@ -2,12 +2,15 @@
 import warnings
 warnings.filterwarnings("ignore")
 
+import os
 import numpy as np
 import torch.serialization
 torch.serialization.add_safe_globals([np._core.multiarray._reconstruct])
 
 from datasets import Audio
 import torch
+from transformers import TrainerCallback
+from huggingface_hub import HfApi
 from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperPromptForConditionalGeneration, GenerationConfig, WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
 from transformers.trainer_callback import TrainerCallback
 from utils_prompt import compute_wer, compute_wer_ocw, DataCollatorSpeechS2SWhitPadding
@@ -156,13 +159,14 @@ if __name__ == '__main__':
     model.config.suppress_tokens = []
     
     # Thư mục đầu ra trên Kaggle
-    # root_path = "/kaggle/working"
+    root_path = "/kaggle/working"
     # if args.dataset == 'earning':
     #     output_dir = os.path.join(root_path, "results", args.exp_name)
     # else:
     #     output_dir = os.path.join(root_path, "results_ocw", args.exp_name)
-    
-    # os.makedirs(output_dir, exist_ok=True)
+    output_dir = os.path.join(root_path, "results", args.exp_name)
+
+    os.makedirs(output_dir, exist_ok=True)
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
@@ -185,7 +189,7 @@ if __name__ == '__main__':
     hub_strategy = "every_save" if args.save_hf else None
     
     training_args = Seq2SeqTrainingArguments(
-        output_dir=f"{args.hf_repo}/checkpoint" if args.save_hf else None,  
+        output_dir = output_dir,  
         hub_model_id=args.hf_repo if args.save_hf else None,
         hub_strategy=hub_strategy,
         push_to_hub=args.save_hf,
@@ -220,6 +224,42 @@ if __name__ == '__main__':
     print(f"push_to_hub: {training_args.push_to_hub}")
     print(f"output_dir: {training_args.output_dir}")
 
+    class HuggingFaceHubCallback(TrainerCallback):
+      def __init__(self, hub_repo):
+          self.hub_repo = hub_repo
+          self.api = HfApi()
+
+      def on_save(self, args, state, control, **kwargs):
+          # Tìm checkpoint mới nhất trong thư mục output
+          checkpoints = [
+              d for d in os.listdir(args.output_dir) 
+              if d.startswith('checkpoint-')
+          ]
+          
+          if not checkpoints:
+              print("No checkpoints found to push")
+              return
+
+          # Sắp xếp và lấy checkpoint mới nhất
+          latest_checkpoint = sorted(checkpoints, key=lambda x: int(x.split('-')[1]))[-1]
+          checkpoint_path = os.path.join(args.output_dir, latest_checkpoint)
+
+          try:
+              # Upload checkpoint vào thư mục checkpoint/ của repo
+              self.api.upload_folder(
+                  folder_path=checkpoint_path,
+                  path_in_repo=f"checkpoint/{latest_checkpoint}",
+                  repo_id=self.hub_repo,
+                  repo_type="model"
+              )
+              print(f"Pushed {latest_checkpoint} to {self.hub_repo}/checkpoint/")
+          except Exception as e:
+              print(f"Error pushing checkpoint to Hugging Face Hub: {e}")
+
+    # Trong phần khởi tạo Trainer
+    hf_hub_callback = HuggingFaceHubCallback(hub_repo=args.hf_repo) if args.save_hf else None
+
+
     if args.dataset == 'earning':
         trainer = Seq2SeqTrainer(
             args=training_args,
@@ -229,6 +269,7 @@ if __name__ == '__main__':
             data_collator=data_collator,
             compute_metrics=compute_wer,
             tokenizer=processor.feature_extractor,
+            callbacks=[hf_hub_callback] if hf_hub_callback else None
         )
     else:
         trainer = Seq2SeqTrainer(
@@ -239,6 +280,7 @@ if __name__ == '__main__':
             data_collator=data_collator,
             compute_metrics=compute_wer_ocw,
             tokenizer=processor.feature_extractor,
+            callbacks=[hf_hub_callback] if hf_hub_callback else None
         )
 
     if not args.eval:
