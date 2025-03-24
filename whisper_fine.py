@@ -209,7 +209,7 @@ if __name__ == '__main__':
             raise
         
     checkpoint_dir = None     
-       
+
     if args.resume:
         try:
             if not args.checkpoint_path:
@@ -437,6 +437,7 @@ if __name__ == '__main__':
         print("Start Training!")
         
         # Bắt đầu training
+        print(f"Checkpont dir: {checkpoint_dir}")
         trainer.train(resume_from_checkpoint=checkpoint_dir)        
         
         # Save final model
