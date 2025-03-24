@@ -73,6 +73,12 @@ if __name__ == '__main__':
             print(f"No repository name specified, using: {args.hf_repo}")
     print(f"save_hf: {args.save_hf}, hf_repo: {args.hf_repo}")
 
+    # Thư mục đầu ra trên Kaggle
+    root_path = "/kaggle/working"
+    
+    output_dir = os.path.join(root_path, "results", args.exp_name)
+    os.makedirs(output_dir, exist_ok=True)
+
     def download_latest_checkpoint(repo_id):
         """
         Tải checkpoint mới nhất từ Hugging Face về local
@@ -104,7 +110,7 @@ if __name__ == '__main__':
             checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             
             # Thư mục lưu checkpoint local
-            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_folder.replace('/', '_'))
+            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", checkpoint_folder.replace('/', '_'))
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
             # Các file cần tải
@@ -181,6 +187,7 @@ if __name__ == '__main__':
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
             traceback.print_exc()
             raise
+
     if args.resume:
         try:
             # Trường hợp 1: Chỉ có --resume, tải checkpoint mới nhất
@@ -274,15 +281,7 @@ if __name__ == '__main__':
     model.config.forced_decoder_ids = None
     model.config.suppress_tokens = []
     
-    # Thư mục đầu ra trên Kaggle
-    root_path = "/kaggle/working"
-    # if args.dataset == 'earning':
-    #     output_dir = os.path.join(root_path, "results", args.exp_name)
-    # else:
-    #     output_dir = os.path.join(root_path, "results_ocw", args.exp_name)
-    output_dir = os.path.join(root_path, "results", args.exp_name)
-
-    os.makedirs(output_dir, exist_ok=True)
+    
 
     iteration_steps = int(len(data_train) * args.epoch // args.batch)
 
