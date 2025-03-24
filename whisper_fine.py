@@ -238,15 +238,6 @@ if __name__ == '__main__':
             # For evaluation with specified checkpoint
             model = WhisperPromptForConditionalGeneration.from_pretrained(args.checkpoint_path)
             print(f"Model loaded from {args.checkpoint_path} for evaluation!")
-        elif checkpoint_path and args.resume:
-            # For resuming training
-            try:
-                model = WhisperPromptForConditionalGeneration.from_pretrained(checkpoint_path)
-                print(f"Successfully loaded model from checkpoint: {checkpoint_path}")
-            except Exception as e:
-                print(f"Error loading checkpoint: {e}")
-                print("Falling back to original model")
-                model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
         else:
             # For initial training
             model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
