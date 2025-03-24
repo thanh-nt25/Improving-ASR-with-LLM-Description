@@ -187,7 +187,6 @@ if __name__ == '__main__':
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
             traceback.print_exc()
             return None
-
     # Trong phần load checkpoint của script chính
     if args.resume:
         try:
