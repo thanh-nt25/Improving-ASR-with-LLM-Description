@@ -185,10 +185,10 @@ if __name__ == '__main__':
             
             for file in files_to_download:
                 try:
-                    full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
+                    # full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
                     hf_hub_download(
                         repo_id=repo_id, 
-                        filename=full_file_path,
+                        filename=file,
                         local_dir=local_checkpoint_dir,
                         local_dir_use_symlinks=False
                     )
