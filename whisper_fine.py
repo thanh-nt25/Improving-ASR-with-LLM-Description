@@ -154,35 +154,43 @@ if __name__ == '__main__':
             traceback.print_exc()
             raise
 
-    def download_specific_checkpoint(repo_id, checkpoint_path):
+    def download_specific_checkpoint(checkpoint_name):
         """
         Tải checkpoint cụ thể từ Hugging Face về local
         """
         try:
+            repo_id = "thanh-nt25/whisper-earning"
             api = HfApi()
+            
             # Kiểm tra checkpoint có tồn tại không
             all_files = api.list_repo_files(repo_id)
             
             # Kiểm tra xem checkpoint có tồn tại không
+            checkpoint_path = f"checkpoints/{checkpoint_name}"
             if not any(checkpoint_path in f for f in all_files):
-                raise ValueError(f"Không tìm thấy checkpoint {checkpoint_path}")
+                raise ValueError(f"Không tìm thấy checkpoint {checkpoint_name}")
             
-            # Thư mục lưu checkpoint local
-            local_checkpoint_dir = os.path.join("/tmp", "huggingface_checkpoints", checkpoint_path.replace('/', '_'))
+            # Thư mục lưu checkpoint local - chú ý path này
+            local_checkpoint_dir = os.path.join(root_path, "results", "checkpoints", checkpoint_name)
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
             # Các file cần tải
             files_to_download = [
                 'config.json', 
-                'pytorch_model.bin', 
+                'generation_config.json', 
                 'model.safetensors',
                 'training_args.bin',
+                'optimizer.pt',
+                'preprocessor_config.json',
+                'rng_state.pth',
+                'scheduler.pt',
+                'trainer_state.json'
             ]
             
             # Tải từng file
             for file in files_to_download:
                 try:
-                    full_file_path = os.path.join(checkpoint_path, file)
+                    full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
                     hf_hub_download(
                         repo_id=repo_id, 
                         filename=full_file_path,
@@ -192,7 +200,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f"Không thể tải file {file}: {e}")
             
-            print(f"Đã tải checkpoint cụ thể: {checkpoint_path}")
+            print(f"Đã tải checkpoint cụ thể: {checkpoint_name}")
             return local_checkpoint_dir
         
         except Exception as e:
@@ -200,7 +208,8 @@ if __name__ == '__main__':
             traceback.print_exc()
             raise
         
-    checkpoint_dir = None        
+    checkpoint_dir = None     
+       
     if args.resume:
         try:
             if not args.checkpoint_path:
@@ -428,7 +437,7 @@ if __name__ == '__main__':
         print("Start Training!")
         
         # Bắt đầu training
-        trainer.train(resume_from_checkpoint=resume_from_checkpoint)        
+        trainer.train(resume_from_checkpoint=checkpoint_dir)        
         
         # Save final model
         trainer.save_model(output_dir)
@@ -440,119 +449,15 @@ if __name__ == '__main__':
             trainer.push_to_hub()
 
     print("Start Evaluation!!")
+
     if args.prompt:
         print("Using prompt")
     
     # Run evaluation on test set
-    test_results = trainer.evaluate(data_test)
-    print(test_results)
+    result = trainer.evaluate(data_test)
+    print(result)
+
+    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+        t.write(str(result))
     
-    # Save test results locally
-    with open(os.path.join(output_dir, 'test_results.txt'), 'w') as t:
-        t.write(str(test_results))
     
-    # Save test results in JSON format for easier parsing
-    with open(os.path.join(output_dir, 'test_results.json'), 'w') as f:
-        json.dump(test_results, f, indent=4)
-    
-    # If saving to HuggingFace Hub, add the test metrics
-    if args.save_hf and args.hf_repo:
-        try:
-            # Create a model card with test metrics or update existing one
-            model_card_content = f"""---
-language: en
-license: apache-2.0
-datasets:
-- {args.dataset}
-metrics:
-- wer
-model-index:
-- name: whisper-{args.model}-{args.dataset}
-  results:
-  - task: 
-      name: Automatic Speech Recognition
-      type: automatic-speech-recognition
-    dataset:
-      name: {args.dataset} test
-      type: {args.dataset}
-    metrics:
-    - name: WER
-      type: wer
-      value: {test_results.get('wer', 'N/A')}
-tags:
-- whisper
-- asr
-- speech
-- audio
-- {args.dataset}
----
-
-# Whisper Fine-tuned Model
-
-This model is a fine-tuned version of [`openai/whisper-{args.model}`] on the {args.dataset} dataset.
-
-## Test Results
-
-- eval_loss: {test_results.get('eval_loss', 'N/A')}
-- eval_wer: {test_results.get('wer', 'N/A')}
-- eval_runtime: {test_results.get('eval_runtime', 'N/A')}
-- eval_samples_per_second: {test_results.get('eval_samples_per_second', 'N/A')}
-
-## Training Parameters
-
-- Model: whisper-{args.model}
-- Dataset: {args.dataset}
-- Prompt: {args.prompt}
-- Learning Rate: {args.lr}
-- Batch Size: {args.batch}
-- Epochs: {args.epoch}
-- Frozen: {args.freeze}
-"""
-
-            # Path to save the README.md file locally
-            readme_path = os.path.join(output_dir, "README.md")
-            with open(readme_path, "w") as f:
-                f.write(model_card_content)
-            
-            # Create a metadata file with the test metrics
-            metadata = {
-                "test_metrics": {
-                    "eval_loss": float(test_results.get('eval_loss', 0)),
-                    "eval_wer": float(test_results.get('wer', 0)),
-                    "eval_runtime": float(test_results.get('eval_runtime', 0)),
-                    "eval_samples_per_second": float(test_results.get('eval_samples_per_second', 0))
-                },
-                "training_params": {
-                    "model": args.model,
-                    "dataset": args.dataset,
-                    "prompt": args.prompt,
-                    "batch_size": args.batch,
-                    "learning_rate": args.lr,
-                    "epochs": args.epoch,
-                    "frozen": args.freeze
-                }
-            }
-            
-            metadata_path = os.path.join(output_dir, "test_metrics.json")
-            with open(metadata_path, "w") as f:
-                json.dump(metadata, f, indent=4)
-                
-            # Push these files to the Hub
-            if args.save_hf and args.hf_repo:
-                print("Pushing test metrics and README to Hugging Face Hub...")
-                api = HfApi()
-                api.upload_file(
-                    path_or_fileobj=readme_path,
-                    path_in_repo="README.md",
-                    repo_id=args.hf_repo,
-                    repo_type="model"
-                )
-                api.upload_file(
-                    path_or_fileobj=metadata_path,
-                    path_in_repo="test_metrics.json",
-                    repo_id=args.hf_repo,
-                    repo_type="model"
-                )
-                print("Test metrics successfully uploaded to Hugging Face Hub!")
-        except Exception as e:
-            print(f"Error uploading test metrics to Hugging Face Hub: {e}")
