@@ -103,11 +103,12 @@ if __name__ == '__main__':
             )
             
             latest_checkpoint = sorted_checkpoints[0]
+            print(f"Latest checkpoint: {latest_checkpoint}")
             
             checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             print(f"Checkpoint folder: {checkpoint_folder}")
            
-            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", latest_checkpoint.split('/')[:-1])
+            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", latest_checkpoint)
             print(f"Local checkpoint dir: {local_checkpoint_dir}")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
