@@ -86,32 +86,39 @@ if __name__ == '__main__':
         try:
             api = HfApi()
 
+            # Lấy toàn bộ file trong repository
             all_files = api.list_repo_files(repo_id)
 
+            # Lọc ra các thư mục checkpoint chứa file quan trọng
             checkpoints = [
                 f for f in all_files 
-                if re.search(r'checkpoints/checkpoint-\d+(/.*)?$', f)
+                if re.search(r'checkpoints/checkpoint-\d+/model\.safetensors$', f)
             ]
             
             if not checkpoints:
                 raise ValueError(f"Không tìm thấy checkpoint nào trong repository {repo_id}")
             
+            # Sắp xếp checkpoint theo số thứ tự giảm dần
             sorted_checkpoints = sorted(
                 checkpoints, 
                 key=lambda x: int(re.search(r'checkpoint-(\d+)', x).group(1)), 
                 reverse=True
             )
             
+            # Lấy checkpoint mới nhất
             latest_checkpoint = sorted_checkpoints[0]
             print(f"Latest checkpoint: {latest_checkpoint}")
             
+            # Lấy thư mục checkpoint
             checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             print(f"Checkpoint folder: {checkpoint_folder}")
-           
-            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", latest_checkpoint)
+          
+            # Tạo thư mục local để lưu checkpoint
+            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", checkpoint_folder)
             print(f"Local checkpoint dir: {local_checkpoint_dir}")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
+            # Các file cần tải
             files_to_download = [
                 'config.json', 
                 'generation_config.json', 
@@ -122,7 +129,6 @@ if __name__ == '__main__':
                 'rng_state.pth',
                 'scheduler.pt',
                 'trainer_state.json'
-
             ]
             
             # Tải từng file
