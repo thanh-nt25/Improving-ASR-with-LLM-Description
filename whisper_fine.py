@@ -212,6 +212,7 @@ if __name__ == '__main__':
                 checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
             else:
                 checkpoint_dir = download_specific_checkpoint(args.checkpoint_path)
+                print(f"checkpoint_dir of case have checkpoint_path {checkpoint_dir}")
             
             model = WhisperPromptForConditionalGeneration.from_pretrained(
                 checkpoint_dir, 
