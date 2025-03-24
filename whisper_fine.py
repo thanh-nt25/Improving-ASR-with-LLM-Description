@@ -103,14 +103,13 @@ if __name__ == '__main__':
             api = HfApi()
             # Lấy danh sách tất cả các checkpoint trong thư mục checkpoints
             checkpoints = [
-                f for f in api.list_repo_files(repo_id, path="checkpoints")
+                f for f in api.list_repo_files(repo_id)
                 if f.startswith("checkpoints/checkpoint-") and f.endswith("/")
             ]
             
             # Sắp xếp và lấy checkpoint mới nhất
             if not checkpoints:
-                print("Không tìm thấy checkpoint nào.")
-                return None
+                raise ValueError("Không tìm thấy checkpoint nào.")
             
             latest_checkpoint = sorted(checkpoints, key=lambda x: int(x.split('-')[-1].strip('/')), reverse=True)[0]
             
@@ -145,7 +144,7 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Lỗi khi tải checkpoint: {e}")
             traceback.print_exc()
-            return None
+            raise  # Ném lại exception để xử lý ở ngoài
 
     def download_specific_checkpoint(repo_id, checkpoint_path):
         """
@@ -193,15 +192,11 @@ if __name__ == '__main__':
             # Trường hợp 1: Chỉ có --resume, tải checkpoint mới nhất
             if not args.checkpoint_path:
                 checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
-                if checkpoint_dir:
-                    model = WhisperPromptForConditionalGeneration.from_pretrained(
-                        checkpoint_dir, 
-                        local_files_only=True
-                    )
-                    print(f"Loaded latest checkpoint from {checkpoint_dir}")
-                else:
-                    # Fallback về model gốc nếu không tải được checkpoint
-                    model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+                model = WhisperPromptForConditionalGeneration.from_pretrained(
+                    checkpoint_dir, 
+                    local_files_only=True
+                )
+                print(f"Loaded latest checkpoint from {checkpoint_dir}")
             
             # Trường hợp 2: Có --resume và --checkpoint-path
             else:
@@ -212,23 +207,18 @@ if __name__ == '__main__':
                     checkpoint_path = f"checkpoints/{parts[1]}"
                     
                     checkpoint_dir = download_specific_checkpoint(repo_id, checkpoint_path)
-                    if checkpoint_dir:
-                        model = WhisperPromptForConditionalGeneration.from_pretrained(
-                            checkpoint_dir, 
-                            local_files_only=True
-                        )
-                        print(f"Loaded specific checkpoint from {checkpoint_dir}")
-                    else:
-                        # Fallback về model gốc nếu không tải được checkpoint
-                        model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+                    model = WhisperPromptForConditionalGeneration.from_pretrained(
+                        checkpoint_dir, 
+                        local_files_only=True
+                    )
+                    print(f"Loaded specific checkpoint from {checkpoint_dir}")
                 else:
-                    print("Định dạng checkpoint không hợp lệ")
-                    model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')
+                    raise ValueError("Invalid checkpoint path format")
         
         except Exception as e:
-            print(f"Lỗi trong quá trình load checkpoint: {e}")
+            print(f"Checkpoint loading failed: {e}")
             traceback.print_exc()
-            model = WhisperPromptForConditionalGeneration.from_pretrained(f'openai/whisper-{args.model}')    
+            raise
     
     if args.prompt:
         if args.eval and args.checkpoint_path:
