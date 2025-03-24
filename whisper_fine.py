@@ -145,7 +145,9 @@ if __name__ == '__main__':
                     print(f"Không thể tải file {file}: {e}")
             
             print(f"Đã tải checkpoint mới nhất: {checkpoint_folder}")
-            return local_checkpoint_dir
+            local_path_downloaded = os.path.join(local_checkpoint_dir, checkpoint_folder)
+            print(f"Local path downloaded: {local_path_downloaded}")
+            return local_path_downloaded
         
         except Exception as e:
             print(f"Lỗi khi tải checkpoint: {e}")
