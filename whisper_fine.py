@@ -31,7 +31,7 @@ if __name__ == '__main__':
     #     pass
     parser = argparse.ArgumentParser(description='whisper prompt tuning')
 
-    # parser.add_argument('--exp-name', type=str, default="test", help="path to save result")
+    parser.add_argument('--exp-name', type=str, default="", help="path to save result")
     parser.add_argument('--model', type=str, default="base.en", help="path to save result")
     parser.add_argument('--batch', type=int, default=2, help="batch size")
     parser.add_argument('--epoch', type=int, default=10, help="batch size")
