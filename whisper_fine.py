@@ -162,19 +162,15 @@ if __name__ == '__main__':
             repo_id = "thanh-nt25/whisper-earning"
             api = HfApi()
             
-            # Kiểm tra checkpoint có tồn tại không
             all_files = api.list_repo_files(repo_id)
             
-            # Kiểm tra xem checkpoint có tồn tại không
             checkpoint_path = f"checkpoints/{checkpoint_name}"
             if not any(checkpoint_path in f for f in all_files):
                 raise ValueError(f"Không tìm thấy checkpoint {checkpoint_name}")
             
-            # Thư mục lưu checkpoint local - chú ý path này
             local_checkpoint_dir = os.path.join(root_path, "results", "checkpoints", checkpoint_name)
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
-            # Các file cần tải
             files_to_download = [
                 'config.json', 
                 'generation_config.json', 
@@ -187,7 +183,6 @@ if __name__ == '__main__':
                 'trainer_state.json'
             ]
             
-            # Tải từng file
             for file in files_to_download:
                 try:
                     full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
@@ -201,7 +196,8 @@ if __name__ == '__main__':
                     print(f"Không thể tải file {file}: {e}")
             
             print(f"Đã tải checkpoint cụ thể: {checkpoint_name}")
-            return local_checkpoint_dir
+            print(f"Local checkpoint dir: {local_checkpoint_dir}")
+            return local_checkpoint_dir # full path
         
         except Exception as e:
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
