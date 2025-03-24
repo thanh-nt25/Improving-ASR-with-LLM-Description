@@ -436,11 +436,14 @@ if __name__ == '__main__':
     if not args.eval:
         print("Start Training!")
         
-        # Bắt đầu training
-        print(f"Checkpont dir: {checkpoint_dir}")
+        if args.checkpoint_path and args.resume:
+            print(f"Resuming training from specificy checkpoint: {args.checkpoint_path}")
+            print(f"Checkpont dir: {checkpoint_dir}")
+        elif args.resume:
+            print(f"Resuming training from checkpoint: {checkpoint_dir}")
+      
         trainer.train(resume_from_checkpoint=checkpoint_dir)        
         
-        # Save final model
         trainer.save_model(output_dir)
         processor.save_pretrained(output_dir)
         
