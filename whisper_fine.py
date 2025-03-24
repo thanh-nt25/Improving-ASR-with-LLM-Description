@@ -113,8 +113,9 @@ if __name__ == '__main__':
             checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             print(f"Checkpoint folder: {checkpoint_folder}")
           
-            # Tạo thư mục local để lưu checkpoint - loại bỏ việc lặp lại
-            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", checkpoint_folder.split('/')[-1])
+            # Tạo thư mục local để lưu checkpoint - loại bỏ hoàn toàn phần checkpoints/
+            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", 
+                                                checkpoint_folder.split('/')[-1])
             print(f"Local checkpoint dir: {local_checkpoint_dir}")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
