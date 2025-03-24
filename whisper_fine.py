@@ -199,34 +199,28 @@ if __name__ == '__main__':
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
             traceback.print_exc()
             raise
-
+        
+    checkpoint_dir = None        
     if args.resume:
         try:
-            # Trường hợp 1: Chỉ có --resume, tải checkpoint mới nhất
             if not args.checkpoint_path:
                 checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
-                model = WhisperPromptForConditionalGeneration.from_pretrained(
-                    checkpoint_dir, 
-                    local_files_only=True
-                )
-                print(f"Loaded latest checkpoint from {checkpoint_dir}")
-            
-            # Trường hợp 2: Có --resume và --checkpoint-path
             else:
                 # Tách repo_id và checkpoint path
                 parts = args.checkpoint_path.split('/checkpoints/')
                 if len(parts) == 2:
                     repo_id = parts[0]
                     checkpoint_path = f"checkpoints/{parts[1]}"
-                    
                     checkpoint_dir = download_specific_checkpoint(repo_id, checkpoint_path)
-                    model = WhisperPromptForConditionalGeneration.from_pretrained(
-                        checkpoint_dir, 
-                        local_files_only=True
-                    )
-                    print(f"Loaded specific checkpoint from {checkpoint_dir}")
                 else:
                     raise ValueError("Invalid checkpoint path format")
+            
+            # Load model từ checkpoint đã tải
+            model = WhisperPromptForConditionalGeneration.from_pretrained(
+                checkpoint_dir, 
+                local_files_only=True
+            )
+            print(f"Loaded checkpoint from {checkpoint_dir}")
         
         except Exception as e:
             print(f"Checkpoint loading failed: {e}")
@@ -433,9 +427,8 @@ if __name__ == '__main__':
     if not args.eval:
         print("Start Training!")
         
-        # Resume from checkpoint if specified
-        resume_from_checkpoint = args.checkpoint_path if args.resume else None
-        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        # Bắt đầu training
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)        
         
         # Save final model
         trainer.save_model(output_dir)
