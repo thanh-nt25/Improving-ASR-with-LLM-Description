@@ -85,20 +85,17 @@ if __name__ == '__main__':
         """
         try:
             api = HfApi()
-            # Lấy toàn bộ file trong repository
+
             all_files = api.list_repo_files(repo_id)
-            
-            # Lọc ra các checkpoint
+
             checkpoints = [
                 f for f in all_files 
                 if re.search(r'checkpoints/checkpoint-\d+(/.*)?$', f)
             ]
             
-            # Sắp xếp và lấy checkpoint mới nhất
             if not checkpoints:
                 raise ValueError(f"Không tìm thấy checkpoint nào trong repository {repo_id}")
             
-            # Sắp xếp checkpoint theo số thứ tự giảm dần
             sorted_checkpoints = sorted(
                 checkpoints, 
                 key=lambda x: int(re.search(r'checkpoint-(\d+)', x).group(1)), 
@@ -106,14 +103,14 @@ if __name__ == '__main__':
             )
             
             latest_checkpoint = sorted_checkpoints[0]
-            # Tìm thư mục checkpoint (loại bỏ phần file cụ thể)
-            checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
             
-            # Thư mục lưu checkpoint local
-            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", checkpoint_folder.replace('/', '_'))
+            checkpoint_folder = '/'.join(latest_checkpoint.split('/')[:-1])
+            print(f"Checkpoint folder: {checkpoint_folder}")
+           
+            local_checkpoint_dir = os.path.join(root_path, "results/huggingface_checkpoints", latest_checkpoint.split('/')[:-1])
+            print(f"Local checkpoint dir: {local_checkpoint_dir}")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
-            # Các file cần tải
             files_to_download = [
                 'config.json', 
                 'generation_config.json', 
