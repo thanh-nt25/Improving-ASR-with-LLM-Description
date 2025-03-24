@@ -168,7 +168,8 @@ if __name__ == '__main__':
             if not any(checkpoint_path in f for f in all_files):
                 raise ValueError(f"Không tìm thấy checkpoint {checkpoint_name}")
             
-            local_checkpoint_dir = os.path.join(root_path, "results", "checkpoints", checkpoint_name)
+            # local_checkpoint_dir = os.path.join(root_path, "results", "checkpoints", checkpoint_name)
+            local_checkpoint_dir = os.path.join(root_path, "results")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
             
             files_to_download = [
@@ -185,10 +186,10 @@ if __name__ == '__main__':
             
             for file in files_to_download:
                 try:
-                    # full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
+                    full_file_path = os.path.join(f"checkpoints/{checkpoint_name}", file)
                     hf_hub_download(
                         repo_id=repo_id, 
-                        filename=file,
+                        filename=full_file_path,
                         local_dir=local_checkpoint_dir,
                         local_dir_use_symlinks=False
                     )
