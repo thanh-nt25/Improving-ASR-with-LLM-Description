@@ -33,6 +33,7 @@ if __name__ == '__main__':
     #     pass
     parser = argparse.ArgumentParser(description='whisper prompt tuning')
 
+    parser.add_argument('--base-line', action='store_true', help="Whether to evaluate using Whisper base-line model")
     parser.add_argument('--exp-name', type=str, default="", help="path to save result")
     parser.add_argument('--model', type=str, default="base.en", help="path to save result")
     parser.add_argument('--batch', type=int, default=2, help="batch size")
@@ -190,7 +191,7 @@ if __name__ == '__main__':
                     hf_hub_download(
                         repo_id=repo_id, 
                         filename=full_file_path,
-                        local_dir=local_checkpoint_dir,
+                        local_dir=local_checkpoint_dir, # khi download se append ca full_file_path vao local folder
                         local_dir_use_symlinks=False
                     )
                 except Exception as e:
@@ -449,10 +450,31 @@ if __name__ == '__main__':
         print("Using prompt")
     
     # Run evaluation on test set
-    result = trainer.evaluate(data_test)
-    print(result)
+    # result = trainer.evaluate(data_test)
+    # print(result)
 
-    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-        t.write(str(result))
+    # with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+    #     t.write(str(result))
+    if args.eval:
+      if args.base_line:
+          # Load the base-line model (whisper base model)
+          base_line_model = WhisperForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+          print("Evaluating with Whisper base-line model")
+
+          # Ensure to evaluate the test set using the base-line model
+          trainer.model = base_line_model
+          result = trainer.evaluate(data_test)
+          print(result)
+
+          with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
+              t.write(str(result))
+      else:
+          # Otherwise, use the fine-tuned model for evaluation
+          print("Evaluating with the fine-tuned model")
+          result = trainer.evaluate(data_test)
+          print(result)
+
+          with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+              t.write(str(result))
     
     
