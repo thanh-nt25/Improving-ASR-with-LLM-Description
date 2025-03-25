@@ -449,7 +449,6 @@ if __name__ == '__main__':
     if args.prompt:
         print("Using prompt")
     
-    # Run evaluation on test set
     # result = trainer.evaluate(data_test)
     # print(result)
 
@@ -457,11 +456,9 @@ if __name__ == '__main__':
     #     t.write(str(result))
     if args.eval:
       if args.base_line:
-          # Load the base-line model (whisper base model)
-          base_line_model = WhisperForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+          base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
           print("Evaluating with Whisper base-line model")
 
-          # Ensure to evaluate the test set using the base-line model
           trainer.model = base_line_model
           result = trainer.evaluate(data_test)
           print(result)
@@ -469,7 +466,6 @@ if __name__ == '__main__':
           with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
               t.write(str(result))
       else:
-          # Otherwise, use the fine-tuned model for evaluation
           print("Evaluating with the fine-tuned model")
           result = trainer.evaluate(data_test)
           print(result)
