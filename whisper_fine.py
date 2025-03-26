@@ -15,7 +15,7 @@ from transformers import TrainerCallback
 from huggingface_hub import HfApi, hf_hub_download
 from transformers_prompt import Seq2SeqTrainingArguments, Seq2SeqTrainer, WhisperPromptForConditionalGeneration, GenerationConfig, WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor
 from transformers.trainer_callback import TrainerCallback
-from utils_prompt import compute_wer, compute_wer_ocw, DataCollatorSpeechS2SWhitPadding
+from utils_prompt import compute_wer, DataCollatorSpeechS2SWhitPadding
 from data.dataloader import PromptWhisperDataset
 import os
 import json
@@ -401,29 +401,16 @@ if __name__ == '__main__':
     # Trong phần khởi tạo Trainer
     hf_hub_callback = HuggingFaceHubCallback(hub_repo=args.hf_repo) if args.save_hf else None
 
-
-    if args.dataset == 'earning':
-        trainer = Seq2SeqTrainer(
-            args=training_args,
-            model=model,
-            train_dataset=data_train,
-            eval_dataset=data_eval,
-            data_collator=data_collator,
-            compute_metrics=compute_wer,
-            tokenizer=processor.feature_extractor,
-            callbacks=[hf_hub_callback] if hf_hub_callback else None
-        )
-    else:
-        trainer = Seq2SeqTrainer(
-            args=training_args,
-            model=model,
-            train_dataset=data_train,
-            eval_dataset=data_eval,
-            data_collator=data_collator,
-            compute_metrics=compute_wer_ocw,
-            tokenizer=processor.feature_extractor,
-            callbacks=[hf_hub_callback] if hf_hub_callback else None
-        )
+    trainer = Seq2SeqTrainer(
+        args=training_args,
+        model=model,
+        train_dataset=data_train,
+        eval_dataset=data_eval,
+        data_collator=data_collator,
+        compute_metrics=compute_wer,
+        tokenizer=processor.feature_extractor,
+        callbacks=[hf_hub_callback] if hf_hub_callback else None
+    )
 
     if not args.eval:
         print("Start Training!")
