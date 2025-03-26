@@ -160,7 +160,7 @@ if __name__ == '__main__':
         Tải checkpoint cụ thể từ Hugging Face về local
         """
         try:
-            repo_id = "thanh-nt25/whisper-earning"
+            repo_id = "thanh-nt25/whisper-ocw"
             api = HfApi()
             
             all_files = api.list_repo_files(repo_id)
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     if args.resume:
         try:
             if not args.checkpoint_path:
-                checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-earning")
+                checkpoint_dir = download_latest_checkpoint("thanh-nt25/whisper-ocw")
             else:
                 checkpoint_dir = download_specific_checkpoint(args.checkpoint_path)
                 print(f"checkpoint_dir of case have checkpoint_path {checkpoint_dir}")
