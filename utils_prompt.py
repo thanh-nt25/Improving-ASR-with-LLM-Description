@@ -229,63 +229,64 @@ def compute_wer(pred, args, prompts):
 
     return {'wer': total_wer}
 
+# ORIGINAL WER FUNCTION
 
-def compute_wer(pred, args, prompts):
-    pred_ids = pred.predictions
-    label_ids = pred.label_ids
-    normalizer = BasicTextNormalizer()
-    tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
+# def compute_wer(pred, args, prompts):
+#     pred_ids = pred.predictions
+#     label_ids = pred.label_ids
+#     normalizer = BasicTextNormalizer()
+#     tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
     
-    # label의 -100dmf pad token으로 변환
-    label_ids[label_ids == -100] = tokenizer.pad_token_id
-    total_wer = 0
-    results = []
-    batch_size = args.per_device_eval_batch_size
-    print("\n\nDone inference!")
-    print("Start decoding and calculating WER...")
+#     # label의 -100dmf pad token으로 변환
+#     label_ids[label_ids == -100] = tokenizer.pad_token_id
+#     total_wer = 0
+#     results = []
+#     batch_size = args.per_device_eval_batch_size
+#     print("\n\nDone inference!")
+#     print("Start decoding and calculating WER...")
     
-    cutted_label_ids = []
-    cutted_pred_ids = []
+#     cutted_label_ids = []
+#     cutted_pred_ids = []
     
-    if len(prompts) != 0:
-        for i in tqdm(range(0, len(pred_ids))):
-            cutted_pred_ids.append(pred_ids[i][len(prompts[i][0])+1:])
-            cutted_label_ids.append(label_ids[i][len(prompts[i][0])+1:])
+#     if len(prompts) != 0:
+#         for i in tqdm(range(0, len(pred_ids))):
+#             cutted_pred_ids.append(pred_ids[i][len(prompts[i][0])+1:])
+#             cutted_label_ids.append(label_ids[i][len(prompts[i][0])+1:])
     
-    for i in tqdm(range(0, len(cutted_pred_ids), batch_size)):
-        batch_pred_ids = cutted_pred_ids[i:i + batch_size]
-        batch_label_ids = cutted_label_ids[i:i + batch_size]        
+#     for i in tqdm(range(0, len(cutted_pred_ids), batch_size)):
+#         batch_pred_ids = cutted_pred_ids[i:i + batch_size]
+#         batch_label_ids = cutted_label_ids[i:i + batch_size]        
 
-        pre_strs = tokenizer.batch_decode(batch_pred_ids, skip_special_tokens=True)
-        label_strs = tokenizer.batch_decode(batch_label_ids, skip_special_tokens=True)
-        # pre_strs, label_strs = zip(*[(normalizer(pred), normalizer(label)) for pred, label in zip(pre_strs, label_strs) if label != 'ignore_time_segment_in_scoring'])
+#         pre_strs = tokenizer.batch_decode(batch_pred_ids, skip_special_tokens=True)
+#         label_strs = tokenizer.batch_decode(batch_label_ids, skip_special_tokens=True)
+#         # pre_strs, label_strs = zip(*[(normalizer(pred), normalizer(label)) for pred, label in zip(pre_strs, label_strs) if label != 'ignore_time_segment_in_scoring'])
         
-        filtered_pre_strs = []
-        filtered_label_strs = []
+#         filtered_pre_strs = []
+#         filtered_label_strs = []
 
-        for pred, label in zip(pre_strs, label_strs):
-            if label != 'ignore_time_segment_in_scoring':
-                # 'ignore_time_segment_in_scoring'이 아닌 경우에만 리스트에 추가
-                filtered_pre_strs.append(normalizer(pred))
-                filtered_label_strs.append(normalizer(label))
+#         for pred, label in zip(pre_strs, label_strs):
+#             if label != 'ignore_time_segment_in_scoring':
+#                 # 'ignore_time_segment_in_scoring'이 아닌 경우에만 리스트에 추가
+#                 filtered_pre_strs.append(normalizer(pred))
+#                 filtered_label_strs.append(normalizer(label))
 
-        # 최종적으로 필터링된 리스트를 다시 튜플로 변환
-        if filtered_pre_strs and filtered_label_strs:
-                pre_strs, label_strs = zip(*zip(filtered_pre_strs, filtered_label_strs))
-        else:
-            pre_strs, label_strs = (), ()
-        results.extend(zip(label_strs, pre_strs))
+#         # 최종적으로 필터링된 리스트를 다시 튜플로 변환
+#         if filtered_pre_strs and filtered_label_strs:
+#                 pre_strs, label_strs = zip(*zip(filtered_pre_strs, filtered_label_strs))
+#         else:
+#             pre_strs, label_strs = (), ()
+#         results.extend(zip(label_strs, pre_strs))
         
-    # 파일에 모든 결과를 한 번에 쓰기
-    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w') as f:
-        for ref, pred in results:
-            f.write(f'Ref:{ref}\n')
-            f.write(f'Pred:{pred}\n\n')
+#     # 파일에 모든 결과를 한 번에 쓰기
+#     with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w') as f:
+#         for ref, pred in results:
+#             f.write(f'Ref:{ref}\n')
+#             f.write(f'Pred:{pred}\n\n')
 
-    # WER 계산
-    pre_strs = [pred for _, pred in results]
-    label_strs = [ref for ref, _ in results]
-    total_wer = 100 * metric.compute(predictions=pre_strs, references=label_strs)
+#     # WER 계산
+#     pre_strs = [pred for _, pred in results]
+#     label_strs = [ref for ref, _ in results]
+#     total_wer = 100 * metric.compute(predictions=pre_strs, references=label_strs)
 
-    return {'wer': total_wer}
+#     return {'wer': total_wer}
 
