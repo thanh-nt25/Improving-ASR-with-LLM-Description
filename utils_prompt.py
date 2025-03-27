@@ -175,8 +175,18 @@ def compute_wer(pred, args, prompts):
     
     if len(prompts) != 0:
         for i in tqdm(range(0, len(pred_ids))):
-            cutted_pred_ids.append(pred_ids[i][len(prompts[i][0])+1:])
-            cutted_label_ids.append(label_ids[i][len(prompts[i][0])+1:])
+            # Check if prompts[i] is None or doesn't have the expected structure
+            if (i < len(prompts) and prompts[i] is not None and 
+                isinstance(prompts[i], (list, tuple)) and len(prompts[i]) > 0 and 
+                prompts[i][0] is not None):
+                # Safe access to prompts[i][0]
+                prompt_length = len(prompts[i][0])
+                cutted_pred_ids.append(pred_ids[i][prompt_length+1:])
+                cutted_label_ids.append(label_ids[i][prompt_length+1:])
+            else:
+                # If prompts structure is invalid, use the full sequence
+                cutted_pred_ids.append(pred_ids[i])
+                cutted_label_ids.append(label_ids[i])
     else:
         cutted_pred_ids = pred_ids
         cutted_label_ids = label_ids
