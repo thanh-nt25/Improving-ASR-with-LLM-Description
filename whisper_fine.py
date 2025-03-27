@@ -455,6 +455,7 @@ if __name__ == '__main__':
 
     #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
     #           t.write(str(result))
+    
     if args.eval:
         # Choose the appropriate dataset based on the eval_on_dev flag
         eval_dataset = data_eval if args.eval_on_dev else data_test
@@ -478,5 +479,7 @@ if __name__ == '__main__':
             result_filename = f'result_{dataset_name}.txt'
             with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
                 t.write(str(result))
+    else:
+        print("Evaluation skipped, please set --eval flag to evaluate the model")
     
     

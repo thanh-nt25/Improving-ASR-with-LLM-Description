@@ -120,7 +120,7 @@ class DataCollatorSpeechS2SWhitPadding:
                 prompt_ids = prompt['input_ids'].tolist() if isinstance(prompt['input_ids'], torch.Tensor) else prompt['input_ids']
                 label_ids = label['input_ids'].tolist() if isinstance(label['input_ids'], torch.Tensor) else label['input_ids']
                 
-                combined_ids = prompt_ids + [50257] + label_ids
+                combined_ids = prompt_ids + [50257] + label_ids # noi token
                 combined_feature.append({'input_ids': combined_ids})
 
             labels_batch = self.processor.tokenizer.pad(combined_feature, return_tensors='pt').to(device)
