@@ -8,6 +8,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import os
+import io
 
 import re
 import unicodedata
@@ -211,15 +212,12 @@ def compute_wer(pred, args, prompts):
         if filtered_pre_strs and filtered_label_strs:
             results.extend(zip(filtered_label_strs, filtered_pre_strs))
         
-    # 파일에 모든 결과를 한 번에 쓰기
-    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w') as f:
-        for ref, pred in results:
-            f.write(f'Ref:{ref}\n')
-            f.write(f'Pred:{pred}\n\n')
+    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w', encoding='utf-8') as f:
+      for ref, pred in results:
+          f.write(f'Ref:{ref}\n')
+          f.write(f'Pred:{pred}\n\n')
 
-    # WER 계산
     if not results:
-        # Return a default value when there are no valid samples
         print("Warning: No valid samples for WER calculation")
         return {'wer': 100.0}  # Worst possible WER
 
