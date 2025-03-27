@@ -43,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="ocw", help="path to save result")
     parser.add_argument('--freeze', action='store_true', help="whether to freeze whisper")
     parser.add_argument('--eval', action='store_true', help="only evaluation")
+    parser.add_argument("--eval_on_dev", action="store_true", help="Evaluate on development set instead of test set")
     
     parser.add_argument('--random', action='store_true', help="context perturbation")
     parser.add_argument('--basic', action='store_true', help="collected description")
@@ -436,28 +437,46 @@ if __name__ == '__main__':
     if args.prompt:
         print("Using prompt")
     
-    # result = trainer.evaluate(data_test)
-    # print(result)
+    # if args.eval:
+    #   if args.base_line:
+    #       base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+    #       print("Evaluating with Whisper base-line model")
 
-    # with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-    #     t.write(str(result))
+    #       trainer.model = base_line_model
+    #       result = trainer.evaluate(data_test)
+    #       print(result)
+
+    #       with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
+    #           t.write(str(result))
+    #   else:
+    #       print("Evaluating with the fine-tuned model")
+    #       result = trainer.evaluate(data_test)
+    #       print(result)
+
+    #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+    #           t.write(str(result))
     if args.eval:
-      if args.base_line:
-          base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
-          print("Evaluating with Whisper base-line model")
-
-          trainer.model = base_line_model
-          result = trainer.evaluate(data_test)
-          print(result)
-
-          with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
-              t.write(str(result))
-      else:
-          print("Evaluating with the fine-tuned model")
-          result = trainer.evaluate(data_test)
-          print(result)
-
-          with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-              t.write(str(result))
+        # Choose the appropriate dataset based on the eval_on_dev flag
+        eval_dataset = data_eval if args.eval_on_dev else data_test
+        dataset_name = "dev" if args.eval_on_dev else "test"
+        
+        if args.base_line:
+            base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+            print(f"Evaluating with Whisper base-line model on {dataset_name} set")
+            trainer.model = base_line_model
+            result = trainer.evaluate(eval_dataset)
+            print(result)
+            
+            result_filename = f'result_base_line_{dataset_name}.txt'
+            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+                t.write(str(result))
+        else:
+            print(f"Evaluating with the fine-tuned model on {dataset_name} set")
+            result = trainer.evaluate(eval_dataset)
+            print(result)
+            
+            result_filename = f'result_{dataset_name}.txt'
+            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+                t.write(str(result))
     
     
