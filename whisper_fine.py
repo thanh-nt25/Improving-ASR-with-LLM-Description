@@ -456,30 +456,35 @@ if __name__ == '__main__':
     #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
     #           t.write(str(result))
     
-    if args.eval:
-        # Choose the appropriate dataset based on the eval_on_dev flag
-        eval_dataset = data_eval if args.eval_on_dev else data_test
-        dataset_name = "dev" if args.eval_on_dev else "test"
+    # if args.eval:
+    #     # Choose the appropriate dataset based on the eval_on_dev flag
+    #     eval_dataset = data_eval if args.eval_on_dev else data_test
+    #     dataset_name = "dev" if args.eval_on_dev else "test"
         
-        if args.base_line:
-            base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
-            print(f"Evaluating with Whisper base-line model on {dataset_name} set")
-            trainer.model = base_line_model
-            result = trainer.evaluate(eval_dataset)
-            print(result)
+    #     if args.base_line:
+    #         base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+    #         print(f"Evaluating with Whisper base-line model on {dataset_name} set")
+    #         trainer.model = base_line_model
+    #         result = trainer.evaluate(eval_dataset)
+    #         print(result)
             
-            result_filename = f'result_base_line_{dataset_name}.txt'
-            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
-                t.write(str(result))
-        else:
-            print(f"Evaluating with the fine-tuned model on {dataset_name} set")
-            result = trainer.evaluate(eval_dataset)
-            print(result)
+    #         result_filename = f'result_base_line_{dataset_name}.txt'
+    #         with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+    #             t.write(str(result))
+    #     else:
+    #         print(f"Evaluating with the fine-tuned model on {dataset_name} set")
+    #         result = trainer.evaluate(eval_dataset)
+    #         print(result)
             
-            result_filename = f'result_{dataset_name}.txt'
-            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
-                t.write(str(result))
-    else:
-        print("Evaluation skipped, please set --eval flag to evaluate the model")
+    #         result_filename = f'result_{dataset_name}.txt'
+    #         with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+    #             t.write(str(result))
+    # else:
+    #     print("Evaluation skipped, please set --eval flag to evaluate the model")
+    result = trainer.evaluate(data_test)
+    print(result)
     
+    # print results
+    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+        t.write(str(result))
     
