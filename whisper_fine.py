@@ -436,6 +436,14 @@ if __name__ == '__main__':
 
     if args.prompt:
         print("Using prompt")
+
+    result = trainer.evaluate(data_test)
+    print(result)
+    
+    # print results
+    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+        t.write(str(result))
+
     
     # if args.eval:
     #   if args.base_line:
@@ -481,10 +489,4 @@ if __name__ == '__main__':
     #             t.write(str(result))
     # else:
     #     print("Evaluation skipped, please set --eval flag to evaluate the model")
-    result = trainer.evaluate(data_test)
-    print(result)
-    
-    # print results
-    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-        t.write(str(result))
     
