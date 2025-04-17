@@ -262,7 +262,10 @@ if __name__ == '__main__':
     data_collator = DataCollatorSpeechS2SWhitPadding(processor=processor)
     
     # Đường dẫn đến dữ liệu trên Kaggle
-    data_root = "/kaggle/input/ocw-biasing"
+    if args.dataset == 'earning':
+      data_root = "/kaggle/input/earning-calls"
+    elif args.dataset == 'ocw':
+      data_root = "/kaggle/input/ocw-biasing"
     
     if args.dataset == 'earning':
         data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"Earnings_Call/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, random=args.random)
