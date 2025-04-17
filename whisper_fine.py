@@ -416,36 +416,36 @@ if __name__ == '__main__':
         callbacks=[hf_hub_callback] if hf_hub_callback else None
     )
 
-    if not args.eval:
-        print("Start Training!")
+    # if not args.eval:
+    #     print("Start Training!")
         
-        if args.checkpoint_path and args.resume:
-            print(f"Resuming training from specificy checkpoint: {args.checkpoint_path}")
-            print(f"Checkpont dir: {checkpoint_dir}")
-        elif args.resume:
-            print(f"Resuming training from checkpoint: {checkpoint_dir}")
+    #     if args.checkpoint_path and args.resume:
+    #         print(f"Resuming training from specificy checkpoint: {args.checkpoint_path}")
+    #         print(f"Checkpont dir: {checkpoint_dir}")
+    #     elif args.resume:
+    #         print(f"Resuming training from checkpoint: {checkpoint_dir}")
       
-        trainer.train(resume_from_checkpoint=checkpoint_dir)        
+    #     trainer.train(resume_from_checkpoint=checkpoint_dir)        
         
-        trainer.save_model(output_dir)
-        processor.save_pretrained(output_dir)
+    #     trainer.save_model(output_dir)
+    #     processor.save_pretrained(output_dir)
         
-        # Push to hub if requested
-        if args.save_hf and args.hf_repo:
-            print(f"Pushing final model to Hugging Face Hub: {args.hf_repo}")
-            trainer.push_to_hub()
+    #     # Push to hub if requested
+    #     if args.save_hf and args.hf_repo:
+    #         print(f"Pushing final model to Hugging Face Hub: {args.hf_repo}")
+    #         trainer.push_to_hub()
 
-    print("Start Evaluation!!")
+    # print("Start Evaluation!!")
 
-    if args.prompt:
-        print("Using prompt")
+    # if args.prompt:
+    #     print("Using prompt")
 
-    result = trainer.evaluate(data_test)
-    print(result)
+    # result = trainer.evaluate(data_test)
+    # print(result)
     
-    # print results
-    with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-        t.write(str(result))
+    # # print results
+    # with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+    #     t.write(str(result))
 
     
     # if args.eval:
@@ -467,29 +467,29 @@ if __name__ == '__main__':
     #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
     #           t.write(str(result))
     
-    # if args.eval:
-    #     # Choose the appropriate dataset based on the eval_on_dev flag
-    #     eval_dataset = data_eval if args.eval_on_dev else data_test
-    #     dataset_name = "dev" if args.eval_on_dev else "test"
+    if args.eval:
+        # Choose the appropriate dataset based on the eval_on_dev flag
+        eval_dataset = data_eval if args.eval_on_dev else data_test
+        dataset_name = "dev" if args.eval_on_dev else "test"
         
-    #     if args.base_line:
-    #         base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
-    #         print(f"Evaluating with Whisper base-line model on {dataset_name} set")
-    #         trainer.model = base_line_model
-    #         result = trainer.evaluate(eval_dataset)
-    #         print(result)
+        if args.base_line:
+            base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+            print(f"Evaluating with Whisper base-line model on {dataset_name} set")
+            trainer.model = base_line_model
+            result = trainer.evaluate(eval_dataset)
+            print(result)
             
-    #         result_filename = f'result_base_line_{dataset_name}.txt'
-    #         with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
-    #             t.write(str(result))
-    #     else:
-    #         print(f"Evaluating with the fine-tuned model on {dataset_name} set")
-    #         result = trainer.evaluate(eval_dataset)
-    #         print(result)
+            result_filename = f'result_base_line_{dataset_name}.txt'
+            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+                t.write(str(result))
+        else:
+            print(f"Evaluating with the fine-tuned model on {dataset_name} set")
+            result = trainer.evaluate(eval_dataset)
+            print(result)
             
-    #         result_filename = f'result_{dataset_name}.txt'
-    #         with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
-    #             t.write(str(result))
-    # else:
-    #     print("Evaluation skipped, please set --eval flag to evaluate the model")
+            result_filename = f'result_{dataset_name}.txt'
+            with open(os.path.join(root_path, "results", args.exp_name, result_filename), 'w') as t:
+                t.write(str(result))
+    else:
+        print("Evaluation skipped, please set --eval flag to evaluate the model")
     
