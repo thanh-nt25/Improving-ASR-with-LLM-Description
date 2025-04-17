@@ -445,24 +445,24 @@ if __name__ == '__main__':
     #     t.write(str(result))
 
     
-    if args.eval:
-      if args.base_line:
-          base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
-          print("Evaluating with Whisper base-line model")
+    # if args.eval:
+    #   if args.base_line:
+    #       base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
+    #       print("Evaluating with Whisper base-line model")
 
-          trainer.model = base_line_model
-          result = trainer.evaluate(data_test)
-          print(result)
+    #       trainer.model = base_line_model
+    #       result = trainer.evaluate(data_test)
+    #       print(result)
 
-          with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
-              t.write(str(result))
-      else:
-          print("Evaluating with the fine-tuned model")
-          result = trainer.evaluate(data_test)
-          print(result)
+    #       with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
+    #           t.write(str(result))
+    #   else:
+    #       print("Evaluating with the fine-tuned model")
+    #       result = trainer.evaluate(data_test)
+    #       print(result)
 
-          with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-              t.write(str(result))
+    #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
+    #           t.write(str(result))
     
     if args.eval:
         # Choose the appropriate dataset based on the eval_on_dev flag
