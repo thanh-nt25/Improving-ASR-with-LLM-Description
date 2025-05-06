@@ -275,6 +275,28 @@ if __name__ == '__main__':
         data_train = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='train', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic, random=args.random)
         data_eval = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='dev', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
         data_test = PromptWhisperDataset(base_path=os.path.join(data_root,"OCW/"), phase='test', feature_extractor=feature_extractor, audio_type=".mp3", tokenizer=tokenizer, prompt=args.prompt, basic=args.basic)
+    elif args.dataset == 'uwb':
+      hf_dataset = load_dataset("Jzuluaga/uwb_atcc")
+
+      data_train = PromptWhisperDataset(
+          base_path=None,
+          phase='train',
+          feature_extractor=feature_extractor,
+          tokenizer=tokenizer,
+          prompt=args.prompt,
+          hf_data=hf_dataset['train']
+      )
+      data_test = PromptWhisperDataset(
+          base_path=None,
+          phase='test',
+          feature_extractor=feature_extractor,
+          tokenizer=tokenizer,
+          prompt=args.prompt,
+          hf_data=hf_dataset['test']
+      )
+
+      data_eval = None  # uwb does not have dev set
+
     else:
         raise ValueError("Wrong dataset")
     
