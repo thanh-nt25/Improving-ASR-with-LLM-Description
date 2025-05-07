@@ -631,7 +631,7 @@ if __name__ == "__main__":
 
             pred_output = trainer.predict(eval_dataset)
             prompts = [[] for _ in range(len(pred_output.predictions))]  # empty prompt
-            result = compute_wer(pred_output, args, prompts)
+            result = compute_wer(pred_output, training_args, prompts)
 
             print(result)
             result_filename = (
