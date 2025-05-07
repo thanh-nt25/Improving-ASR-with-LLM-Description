@@ -626,9 +626,27 @@ if __name__ == "__main__":
             )
             print(f"Evaluating with Whisper base-line model on {dataset_name} set")
             trainer.model = base_line_model
-            result = trainer.evaluate(eval_dataset)
-            print(result)
+            # result = trainer.evaluate(eval_dataset)
+            # print(result)
+            
+            result, (wer_list, preds, refs) = compute_wer(trainer.predict(eval_dataset).predictions, trainer.predict(eval_dataset).label_ids)
 
+            print(result)
+            result_filename = f"result_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
+            output_path = os.path.join(root_path, "results", args.exp_name)
+            os.makedirs(output_path, exist_ok=True)
+
+            with open(os.path.join(output_path, result_filename), "w") as f:
+                f.write(str(result))
+
+            detail_filename = f"details_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
+            with open(os.path.join(output_path, detail_filename), "w", encoding="utf-8") as f:
+                for i, (r, p, w) in enumerate(zip(refs, preds, wer_list)):
+                    f.write(f"[{i}] WER: {w:.3f}\n")
+                    f.write(f"REF : {r}\n")
+                    f.write(f"PRED: {p}\n\n")            
+
+            # old code
             result_filename = f"result_base_line_{dataset_name}.txt"
             with open(
                 os.path.join(root_path, "results", args.exp_name, result_filename), "w"
@@ -638,19 +656,6 @@ if __name__ == "__main__":
             print(f"Evaluating with the fine-tuned model on {dataset_name} set")
             result = trainer.evaluate(eval_dataset)
             print(result)
-
-            # decode & debug
-            decoded_preds = processor.tokenizer.batch_decode(
-                trainer.predict(eval_dataset).predictions, skip_special_tokens=True
-            )
-            decoded_labels = processor.tokenizer.batch_decode(
-                trainer.predict(eval_dataset).label_ids, skip_special_tokens=True
-            )
-
-            for i in range(5):
-                print(f"\n[{i}] 🟩 Ground Truth: {decoded_labels[i]}")
-                print(f"[{i}] 🟥 Prediction  : {decoded_preds[i]}")
-                print("-" * 80)
 
             result_filename = f"result_{dataset_name}.txt"
             with open(
