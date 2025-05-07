@@ -622,7 +622,7 @@ if __name__ == "__main__":
 
         if args.base_line:
             base_line_model = WhisperPromptForConditionalGeneration.from_pretrained(
-                "openai/whisper-medium.en"
+                "openai/whisper-small.en"
             )
             print(f"Evaluating with Whisper base-line model on {dataset_name} set")
             trainer.model = base_line_model
