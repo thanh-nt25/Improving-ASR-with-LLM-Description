@@ -313,7 +313,8 @@ if __name__ == '__main__':
     log_step = int((len(data_train) // 50) // args.batch)
 
     print("Train data len:", len(data_train))
-    print("Eval data len:", len(data_eval))
+    if data_eval is not None:
+      print("Eval data len:", len(data_eval))
     print("Test data len:", len(data_test))
 
     print("Max steps:", iteration_steps)
