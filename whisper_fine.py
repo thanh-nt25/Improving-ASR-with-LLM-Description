@@ -9,7 +9,7 @@ import numpy as np
 import torch.serialization
 torch.serialization.add_safe_globals([np._core.multiarray._reconstruct])
 
-from datasets import Audio
+from datasets import Audio, load_dataset
 import torch
 from transformers import TrainerCallback
 from huggingface_hub import HfApi, hf_hub_download
