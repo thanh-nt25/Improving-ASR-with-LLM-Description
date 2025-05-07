@@ -432,7 +432,7 @@ if __name__ == '__main__':
         args=training_args,
         model=model,
         train_dataset=data_train,
-        eval_dataset=data_eval,
+        # eval_dataset=data_eval,
         data_collator=data_collator,
         compute_metrics=compute_wer,
         tokenizer=processor.feature_extractor,
