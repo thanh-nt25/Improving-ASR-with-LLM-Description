@@ -330,9 +330,9 @@ if __name__ == '__main__':
     
     training_args = Seq2SeqTrainingArguments(
         output_dir = output_dir,  
-        hub_model_id=args.hf_repo if args.save_hf else None,
-        hub_strategy=hub_strategy,
-        push_to_hub=args.save_hf,
+        # hub_model_id=args.hf_repo if args.save_hf else None,
+        # hub_strategy=hub_strategy,
+        # push_to_hub=args.save_hf,
         save_strategy="steps", # eval steps
         weight_decay=0.01,
         dataloader_num_workers=1,
