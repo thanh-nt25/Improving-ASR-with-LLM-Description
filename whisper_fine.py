@@ -628,23 +628,31 @@ if __name__ == "__main__":
             trainer.model = base_line_model
             # result = trainer.evaluate(eval_dataset)
             # print(result)
-            
-            result, (wer_list, preds, refs) = compute_wer(trainer.predict(eval_dataset).predictions, trainer.predict(eval_dataset).label_ids)
+
+            pred_output = trainer.predict(eval_dataset)
+            prompts = [[] for _ in range(len(pred_output.predictions))]  # empty prompt
+            result = compute_wer(pred_output, args, prompts)
 
             print(result)
-            result_filename = f"result_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
+            result_filename = (
+                f"result_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
+            )
             output_path = os.path.join(root_path, "results", args.exp_name)
             os.makedirs(output_path, exist_ok=True)
 
             with open(os.path.join(output_path, result_filename), "w") as f:
                 f.write(str(result))
 
-            detail_filename = f"details_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
-            with open(os.path.join(output_path, detail_filename), "w", encoding="utf-8") as f:
+            detail_filename = (
+                f"details_{'base_line_' if args.base_line else ''}{dataset_name}.txt"
+            )
+            with open(
+                os.path.join(output_path, detail_filename), "w", encoding="utf-8"
+            ) as f:
                 for i, (r, p, w) in enumerate(zip(refs, preds, wer_list)):
                     f.write(f"[{i}] WER: {w:.3f}\n")
                     f.write(f"REF : {r}\n")
-                    f.write(f"PRED: {p}\n\n")            
+                    f.write(f"PRED: {p}\n\n")
 
             # old code
             result_filename = f"result_base_line_{dataset_name}.txt"
