@@ -622,21 +622,22 @@ if __name__ == "__main__":
 
         if args.base_line:
             base_line_model = WhisperPromptForConditionalGeneration.from_pretrained(
-                "openai/whisper-base.en"
+                "openai/whisper-medium.en"
             )
             print(f"Evaluating with Whisper base-line model on {dataset_name} set")
             trainer.model = base_line_model
             result = trainer.evaluate(eval_dataset)
             print(result)
 
-            
             # old code
-            result_filename = f"result_base_line_on_{args.dataset}_on_{dataset_name}_set.txt"
+            result_filename = (
+                f"result_base_line_on_{args.dataset}_on_{dataset_name}_set.txt"
+            )
             with open(
                 os.path.join(root_path, "results", args.exp_name, result_filename), "w"
             ) as t:
                 t.write(str(result))
-            
+
         else:
             print(f"Evaluating with the fine-tuned model on {dataset_name} set")
             result = trainer.evaluate(eval_dataset)
