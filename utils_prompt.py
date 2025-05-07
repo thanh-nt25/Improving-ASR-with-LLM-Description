@@ -44,6 +44,7 @@ ADDITIONAL_DIACRITICS = {
     "Ł": "L",
 }
 
+
 def remove_symbols_and_diacritics(s: str, keep=""):
     """
     Replace any other markers, symbols, and punctuations with a space, and drop any diacritics (category 'Mn' and some
@@ -66,15 +67,22 @@ def remove_symbols_and_diacritics(s: str, keep=""):
 
     return "".join(replace_character(c) for c in unicodedata.normalize("NFKD", s))
 
+
 def remove_symbols(s: str):
     """
     Replace any other markers, symbols, punctuations with a space, keeping diacritics
     """
-    return "".join(" " if unicodedata.category(c)[0] in "MSP" else c for c in unicodedata.normalize("NFKC", s))
+    return "".join(
+        " " if unicodedata.category(c)[0] in "MSP" else c
+        for c in unicodedata.normalize("NFKC", s)
+    )
+
 
 class BasicTextNormalizer:
     def __init__(self, remove_diacritics: bool = False, split_letters: bool = False):
-        self.clean = remove_symbols_and_diacritics if remove_diacritics else remove_symbols
+        self.clean = (
+            remove_symbols_and_diacritics if remove_diacritics else remove_symbols
+        )
         self.split_letters = split_letters
 
     def __call__(self, s: str):
@@ -86,104 +94,163 @@ class BasicTextNormalizer:
         if self.split_letters:
             s = " ".join(regex.findall(r"\X", s, regex.U))
 
-        s = re.sub(r"\s+", " ", s)  # replace any successive whitespace characters with a space
+        s = re.sub(
+            r"\s+", " ", s
+        )  # replace any successive whitespace characters with a space
 
         return s
+
+
 # prepare feature extractor, tokenizer
-feature_extractor = WhisperFeatureExtractor.from_pretrained('openai/whisper-base')
-tokenizer = WhisperTokenizer.from_pretrained('openai/whisper-base', language='Hindi', task='transcribe')
+feature_extractor = WhisperFeatureExtractor.from_pretrained("openai/whisper-base")
+tokenizer = WhisperTokenizer.from_pretrained(
+    "openai/whisper-base", language="Hindi", task="transcribe"
+)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def prepare_dataset(batch):
     # audio를 16kHZ로 load
-    audio = batch['audio']
+    audio = batch["audio"]
     # padding & trucation 적용,log-mel spectrogram으로 변환
-    batch['input_features'] = feature_extractor(audio['array'], sampling_rate=audio['sampling_rate']).input_features[0]
-    
-    batch['labels'] = tokenizer(batch['sentence']).input_ids
+    batch["input_features"] = feature_extractor(
+        audio["array"], sampling_rate=audio["sampling_rate"]
+    ).input_features[0]
+
+    batch["labels"] = tokenizer(batch["sentence"]).input_ids
     return batch
+
 
 # define a data collator
 @dataclass
 class DataCollatorSpeechS2SWhitPadding:
     processor: Any
-    
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
-        input_features = [{'input_features': feature['input_features']} for feature in features]
-        batch = self.processor.feature_extractor.pad(input_features, return_tensors='pt').to(device)
 
-        if features[0]['prompt'].numel() > 0:
-            prompt_features = [{'input_ids': feature['prompt']} for feature in features]
-            label_features = [{'input_ids': feature['labels']} for feature in features]
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
+        input_features = [
+            {"input_features": feature["input_features"]} for feature in features
+        ]
+        batch = self.processor.feature_extractor.pad(
+            input_features, return_tensors="pt"
+        ).to(device)
+
+        if features[0]["prompt"].numel() > 0:
+            prompt_features = [{"input_ids": feature["prompt"]} for feature in features]
+            label_features = [{"input_ids": feature["labels"]} for feature in features]
 
             combined_feature = []
             for prompt, label in zip(prompt_features, label_features):
-                prompt_ids = prompt['input_ids'].tolist() if isinstance(prompt['input_ids'], torch.Tensor) else prompt['input_ids']
-                label_ids = label['input_ids'].tolist() if isinstance(label['input_ids'], torch.Tensor) else label['input_ids']
-                
-                combined_ids = prompt_ids + [50257] + label_ids # noi token
-                combined_feature.append({'input_ids': combined_ids})
+                prompt_ids = (
+                    prompt["input_ids"].tolist()
+                    if isinstance(prompt["input_ids"], torch.Tensor)
+                    else prompt["input_ids"]
+                )
+                label_ids = (
+                    label["input_ids"].tolist()
+                    if isinstance(label["input_ids"], torch.Tensor)
+                    else label["input_ids"]
+                )
 
-            labels_batch = self.processor.tokenizer.pad(combined_feature, return_tensors='pt').to(device)
-            
-            labels = labels_batch['input_ids'].masked_fill(labels_batch.attention_mask.ne(1), -100)
-            
-            if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item():
+                combined_ids = prompt_ids + [50257] + label_ids  # noi token
+                combined_feature.append({"input_ids": combined_ids})
+
+            labels_batch = self.processor.tokenizer.pad(
+                combined_feature, return_tensors="pt"
+            ).to(device)
+
+            labels = labels_batch["input_ids"].masked_fill(
+                labels_batch.attention_mask.ne(1), -100
+            )
+
+            if (
+                (labels[:, 0] == self.processor.tokenizer.bos_token_id)
+                .all()
+                .cpu()
+                .item()
+            ):
                 labels = labels[:, 1:]
 
             # Ensure 'prompts' is a list of tensors and pad them to the same length
-            prompts = [prompt['input_ids'].clone().detach() for prompt in prompt_features]
+            prompts = [
+                prompt["input_ids"].clone().detach() for prompt in prompt_features
+            ]
             max_len = max([prompt.size(0) for prompt in prompts])
-            padded_prompts = [torch.nn.functional.pad(prompt, (0, max_len - prompt.size(0)), value=self.processor.tokenizer.pad_token_id) for prompt in prompts]
-            
+            padded_prompts = [
+                torch.nn.functional.pad(
+                    prompt,
+                    (0, max_len - prompt.size(0)),
+                    value=self.processor.tokenizer.pad_token_id,
+                )
+                for prompt in prompts
+            ]
+
             # Stack the padded prompts
-            batch['prompts'] = torch.stack(padded_prompts)
-            
-            batch['labels'] = labels
+            batch["prompts"] = torch.stack(padded_prompts)
+
+            batch["labels"] = labels
 
         else:
-            label_features = [{'input_ids': feature['labels']} for feature in features]
-            labels_batch = self.processor.tokenizer.pad(label_features, return_tensors='pt').to(device)
-            
-            labels = labels_batch['input_ids'].masked_fill(labels_batch.attention_mask.ne(1), -100)
-            
-            if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item():
+            label_features = [{"input_ids": feature["labels"]} for feature in features]
+            labels_batch = self.processor.tokenizer.pad(
+                label_features, return_tensors="pt"
+            ).to(device)
+
+            labels = labels_batch["input_ids"].masked_fill(
+                labels_batch.attention_mask.ne(1), -100
+            )
+
+            if (
+                (labels[:, 0] == self.processor.tokenizer.bos_token_id)
+                .all()
+                .cpu()
+                .item()
+            ):
                 labels = labels[:, 1:]
-            
-            batch['labels'] = labels
-            batch['prompts'] = None
+
+            batch["labels"] = labels
+            batch["prompts"] = None
 
         return batch
 
-# metric    
-metric = evaluate.load('wer')
+
+# metric
+metric = evaluate.load("wer")
+
 
 def compute_wer(pred, args, prompts):
     pred_ids = pred.predictions
     label_ids = pred.label_ids
     normalizer = BasicTextNormalizer()
-    tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
-    
+    tokenizer = WhisperTokenizer.from_pretrained(
+        f"openai/whisper-{args.model}", language="en", task="transcribe"
+    )
+
     # label의 -100dmf pad token으로 변환
     label_ids[label_ids == -100] = tokenizer.pad_token_id
     results = []
     batch_size = args.per_device_eval_batch_size
     print("\n\nDone inference!")
     print("Start decoding and calculating WER...")
-    
+
     cutted_label_ids = []
     cutted_pred_ids = []
-    
+
     if len(prompts) != 0:
         for i in tqdm(range(0, len(pred_ids))):
             # Check if prompts[i] is None or doesn't have the expected structure
-            if (i < len(prompts) and prompts[i] is not None and 
-                isinstance(prompts[i], (list, tuple)) and len(prompts[i]) > 0 and 
-                prompts[i][0] is not None):
+            if (
+                i < len(prompts)
+                and prompts[i] is not None
+                and isinstance(prompts[i], (list, tuple))
+                and len(prompts[i]) > 0
+                and prompts[i][0] is not None
+            ):
                 # Safe access to prompts[i][0]
                 prompt_length = len(prompts[i][0])
-                cutted_pred_ids.append(pred_ids[i][prompt_length+1:])
-                cutted_label_ids.append(label_ids[i][prompt_length+1:])
+                cutted_pred_ids.append(pred_ids[i][prompt_length + 1 :])
+                cutted_label_ids.append(label_ids[i][prompt_length + 1 :])
             else:
                 # If prompts structure is invalid, use the full sequence
                 cutted_pred_ids.append(pred_ids[i])
@@ -191,19 +258,19 @@ def compute_wer(pred, args, prompts):
     else:
         cutted_pred_ids = pred_ids
         cutted_label_ids = label_ids
-    
+
     for i in tqdm(range(0, len(cutted_pred_ids), batch_size)):
-        batch_pred_ids = cutted_pred_ids[i:i + batch_size]
-        batch_label_ids = cutted_label_ids[i:i + batch_size]        
+        batch_pred_ids = cutted_pred_ids[i : i + batch_size]
+        batch_label_ids = cutted_label_ids[i : i + batch_size]
 
         pre_strs = tokenizer.batch_decode(batch_pred_ids, skip_special_tokens=True)
         label_strs = tokenizer.batch_decode(batch_label_ids, skip_special_tokens=True)
-        
+
         filtered_pre_strs = []
         filtered_label_strs = []
 
         for pred, label in zip(pre_strs, label_strs):
-            if label != 'ignore_time_segment_in_scoring' and label.strip() != '':
+            if label != "ignore_time_segment_in_scoring" and label.strip() != "":
                 # Skip empty references and 'ignore_time_segment_in_scoring'
                 filtered_pre_strs.append(normalizer(pred))
                 filtered_label_strs.append(normalizer(label))
@@ -211,21 +278,24 @@ def compute_wer(pred, args, prompts):
         # Only add valid pairs to results
         if filtered_pre_strs and filtered_label_strs:
             results.extend(zip(filtered_label_strs, filtered_pre_strs))
-        
-    with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w', encoding='utf-8') as f:
-      for ref, pred in results:
-          f.write(f'Ref:{ref}\n')
-          f.write(f'Pred:{pred}\n\n')
+
+    with open(
+        os.path.join("/kaggle/working", "refs_and_pred.txt"), "w", encoding="utf-8"
+    ) as f:
+        for ref, pred in results:
+            f.write(f"Ref:{ref}\n")
+            f.write(f"Pred:{pred}\n\n")
 
     if not results:
         print("Warning: No valid samples for WER calculation")
-        return {'wer': 100.0}  # Worst possible WER
+        return {"wer": 100.0}  # Worst possible WER
 
     pre_strs = [pred for _, pred in results]
     label_strs = [ref for ref, _ in results]
     total_wer = 100 * metric.compute(predictions=pre_strs, references=label_strs)
 
-    return {'wer': total_wer}
+    return {"wer": total_wer}
+
 
 # ORIGINAL WER FUNCTION
 
@@ -234,7 +304,7 @@ def compute_wer(pred, args, prompts):
 #     label_ids = pred.label_ids
 #     normalizer = BasicTextNormalizer()
 #     tokenizer = WhisperTokenizer.from_pretrained(f'openai/whisper-{args.model}', language='en', task='transcribe')
-    
+
 #     # label의 -100dmf pad token으로 변환
 #     label_ids[label_ids == -100] = tokenizer.pad_token_id
 #     total_wer = 0
@@ -242,23 +312,23 @@ def compute_wer(pred, args, prompts):
 #     batch_size = args.per_device_eval_batch_size
 #     print("\n\nDone inference!")
 #     print("Start decoding and calculating WER...")
-    
+
 #     cutted_label_ids = []
 #     cutted_pred_ids = []
-    
+
 #     if len(prompts) != 0:
 #         for i in tqdm(range(0, len(pred_ids))):
 #             cutted_pred_ids.append(pred_ids[i][len(prompts[i][0])+1:])
 #             cutted_label_ids.append(label_ids[i][len(prompts[i][0])+1:])
-    
+
 #     for i in tqdm(range(0, len(cutted_pred_ids), batch_size)):
 #         batch_pred_ids = cutted_pred_ids[i:i + batch_size]
-#         batch_label_ids = cutted_label_ids[i:i + batch_size]        
+#         batch_label_ids = cutted_label_ids[i:i + batch_size]
 
 #         pre_strs = tokenizer.batch_decode(batch_pred_ids, skip_special_tokens=True)
 #         label_strs = tokenizer.batch_decode(batch_label_ids, skip_special_tokens=True)
 #         # pre_strs, label_strs = zip(*[(normalizer(pred), normalizer(label)) for pred, label in zip(pre_strs, label_strs) if label != 'ignore_time_segment_in_scoring'])
-        
+
 #         filtered_pre_strs = []
 #         filtered_label_strs = []
 
@@ -274,7 +344,7 @@ def compute_wer(pred, args, prompts):
 #         else:
 #             pre_strs, label_strs = (), ()
 #         results.extend(zip(label_strs, pre_strs))
-        
+
 #     # 파일에 모든 결과를 한 번에 쓰기
 #     with open(os.path.join(args.output_dir, 'refs_and_pred.txt'), 'w') as f:
 #         for ref, pred in results:
@@ -287,4 +357,3 @@ def compute_wer(pred, args, prompts):
 #     total_wer = 100 * metric.compute(predictions=pre_strs, references=label_strs)
 
 #     return {'wer': total_wer}
-
