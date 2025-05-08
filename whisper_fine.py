@@ -331,6 +331,8 @@ if __name__ == "__main__":
         data_root = "/kaggle/input/earning-calls"
     elif args.dataset == "ocw":
         data_root = "/kaggle/input/ocw-biasing"
+    elif args.dataset == "medical":
+        data_root = "/kaggle/input/medical-and-intent"
 
     if args.dataset == "earning":
         data_train = PromptWhisperDataset(
@@ -389,6 +391,34 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
+    elif args.dataset == "medical":
+        data_train = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            phase="train",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        data_eval = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            phase="dev",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        data_test = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            phase="test",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
     elif args.dataset == "uwb":
         hf_dataset = load_dataset("Jzuluaga/uwb_atcc")
 
@@ -425,8 +455,7 @@ if __name__ == "__main__":
     log_step = int((len(data_train) // 50) // args.batch)
 
     print("Train data len:", len(data_train))
-    if data_eval is not None:
-        print("Eval data len:", len(data_eval))
+    print("Eval data len:", len(data_eval))
     print("Test data len:", len(data_test))
 
     print("Max steps:", iteration_steps)
