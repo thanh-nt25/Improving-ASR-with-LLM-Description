@@ -393,6 +393,7 @@ if __name__ == "__main__":
             basic=args.basic,
         )
     elif args.dataset == "medical":
+        print("Processing training data")
         data_train = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="train",
@@ -402,6 +403,7 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
+        print("Processing evaluation data")
         data_eval = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="dev",
@@ -411,6 +413,7 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
+        print("Processing test data")
         data_test = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="test",
