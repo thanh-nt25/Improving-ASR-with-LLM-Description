@@ -446,7 +446,7 @@ if __name__ == "__main__":
         print("Processing evaluation data")
         data_eval = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical-united-syn-med/"),
-            phase="dev",
+            phase="dev", # add
             feature_extractor=feature_extractor,
             audio_type=".mp3",
             tokenizer=tokenizer,
