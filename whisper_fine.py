@@ -333,6 +333,7 @@ if __name__ == "__main__":
         data_root = "/kaggle/input/ocw-biasing"
     elif args.dataset == "medical":
         data_root = "/kaggle/input/medical-and-intent"
+        print("Using medical dataset")
 
     if args.dataset == "earning":
         data_train = PromptWhisperDataset(
@@ -396,7 +397,7 @@ if __name__ == "__main__":
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="train",
             feature_extractor=feature_extractor,
-            audio_type=".mp3",
+            audio_type=".wav",
             tokenizer=tokenizer,
             prompt=args.prompt,
             basic=args.basic,
@@ -405,7 +406,7 @@ if __name__ == "__main__":
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="dev",
             feature_extractor=feature_extractor,
-            audio_type=".mp3",
+            audio_type=".wav",
             tokenizer=tokenizer,
             prompt=args.prompt,
             basic=args.basic,
@@ -414,7 +415,7 @@ if __name__ == "__main__":
             base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
             phase="test",
             feature_extractor=feature_extractor,
-            audio_type=".mp3",
+            audio_type=".wav",
             tokenizer=tokenizer,
             prompt=args.prompt,
             basic=args.basic,
