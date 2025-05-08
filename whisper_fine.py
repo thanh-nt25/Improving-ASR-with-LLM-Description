@@ -497,6 +497,11 @@ if __name__ == "__main__":
 
     eval_step = int((len(data_train) // 2) // args.batch)
     log_step = int((len(data_train) // 50) // args.batch)
+    
+    if eval_step < 1:
+      eval_step = 1
+    if log_step < 1:
+      log_step = 1
 
     print("Train data len:", len(data_train))
     print("Eval data len:", len(data_eval))
