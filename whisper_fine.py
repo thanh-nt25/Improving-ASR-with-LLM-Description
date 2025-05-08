@@ -395,7 +395,9 @@ if __name__ == "__main__":
     elif args.dataset == "medical":
         print("Processing training data")
         data_train = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            base_path=os.path.join(
+                data_root, "medical_speech_transcription_and_intent/"
+            ),
             phase="train",
             feature_extractor=feature_extractor,
             audio_type=".wav",
@@ -405,7 +407,9 @@ if __name__ == "__main__":
         )
         print("Processing evaluation data")
         data_eval = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            base_path=os.path.join(
+                data_root, "medical_speech_transcription_and_intent/"
+            ),
             phase="dev",
             feature_extractor=feature_extractor,
             audio_type=".wav",
@@ -415,7 +419,9 @@ if __name__ == "__main__":
         )
         print("Processing test data")
         data_test = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical_speech_transcription_and_intent/"),
+            base_path=os.path.join(
+                data_root, "medical_speech_transcription_and_intent/"
+            ),
             phase="test",
             feature_extractor=feature_extractor,
             audio_type=".wav",
@@ -487,7 +493,7 @@ if __name__ == "__main__":
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=32,  # Điều chỉnh batch size nếu cần
+        per_device_eval_batch_size=1,  # Điều chỉnh batch size nếu cần
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
