@@ -333,7 +333,10 @@ if __name__ == "__main__":
         data_root = "/kaggle/input/ocw-biasing"
     elif args.dataset == "medical":
         data_root = "/kaggle/input/medical-and-intent"
-        print("Using medical dataset")
+        print("Using medical and intent dataset")
+    elif args.dataset == "medical-syn":
+        data_root = "/kaggle/input/medical-syn-med"
+        print("Using medical syn med dataset")
 
     if args.dataset == "earning":
         data_train = PromptWhisperDataset(
@@ -425,6 +428,37 @@ if __name__ == "__main__":
             phase="test",
             feature_extractor=feature_extractor,
             audio_type=".wav",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+    elif args.dataset == "medical-syn":
+        print("Processing training data")
+        data_train = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            phase="train",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        print("Processing evaluation data")
+        data_eval = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            phase="dev",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        print("Processing test data")
+        data_test = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            phase="test",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
             tokenizer=tokenizer,
             prompt=args.prompt,
             basic=args.basic,
