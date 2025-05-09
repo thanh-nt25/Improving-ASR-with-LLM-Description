@@ -313,8 +313,8 @@ if __name__ == "__main__":
     elif args.dataset == "medical":
         data_root = "/kaggle/input/medical-and-intent"
         print("Using medical and intent dataset")
-    elif args.dataset == "medical-syn":
-        data_root = "/kaggle/input/medical-syn-med"
+    elif args.dataset == "medical-syn-138":
+        data_root = "/kaggle/input/medical-syn-med-138"
         print("Using medical syn med dataset")
 
     if args.dataset == "earning":
@@ -374,47 +374,11 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
-    elif args.dataset == "medical":
+
+    elif args.dataset == "medical-syn-138":
         print("Processing training data")
         data_train = PromptWhisperDataset(
-            base_path=os.path.join(
-                data_root, "medical_speech_transcription_and_intent/"
-            ),
-            phase="train",
-            feature_extractor=feature_extractor,
-            audio_type=".wav",
-            tokenizer=tokenizer,
-            prompt=args.prompt,
-            basic=args.basic,
-        )
-        print("Processing evaluation data")
-        data_eval = PromptWhisperDataset(
-            base_path=os.path.join(
-                data_root, "medical_speech_transcription_and_intent/"
-            ),
-            phase="dev",
-            feature_extractor=feature_extractor,
-            audio_type=".wav",
-            tokenizer=tokenizer,
-            prompt=args.prompt,
-            basic=args.basic,
-        )
-        print("Processing test data")
-        data_test = PromptWhisperDataset(
-            base_path=os.path.join(
-                data_root, "medical_speech_transcription_and_intent/"
-            ),
-            phase="test",
-            feature_extractor=feature_extractor,
-            audio_type=".wav",
-            tokenizer=tokenizer,
-            prompt=args.prompt,
-            basic=args.basic,
-        )
-    elif args.dataset == "medical-syn":
-        print("Processing training data")
-        data_train = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
             phase="train",
             feature_extractor=feature_extractor,
             audio_type=".mp3",
@@ -424,7 +388,7 @@ if __name__ == "__main__":
         )
         print("Processing evaluation data")
         data_eval = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
             phase="dev",
             feature_extractor=feature_extractor,
             audio_type=".mp3",
@@ -434,7 +398,7 @@ if __name__ == "__main__":
         )
         print("Processing test data")
         data_test = PromptWhisperDataset(
-            base_path=os.path.join(data_root, "medical-united-syn-med/"),
+            base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
             phase="test",
             feature_extractor=feature_extractor,
             audio_type=".mp3",
