@@ -376,7 +376,6 @@ if __name__ == "__main__":
         )
 
     elif args.dataset == "medical-syn-138":
-      if not args.eval:
         print("Processing training data")
         data_train = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
@@ -397,16 +396,16 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
-      print("Processing test data")
-      data_test = PromptWhisperDataset(
-          base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
-          phase="test",
-          feature_extractor=feature_extractor,
-          audio_type=".mp3",
-          tokenizer=tokenizer,
-          prompt=args.prompt,
-          basic=args.basic,
-      )
+        print("Processing test data")
+        data_test = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med-138/"),
+            phase="test",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
     elif args.dataset == "uwb":
         hf_dataset = load_dataset("Jzuluaga/uwb_atcc")
 
