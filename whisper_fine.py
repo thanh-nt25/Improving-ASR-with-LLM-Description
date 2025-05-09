@@ -1,4 +1,3 @@
-# Add this at the beginning of your whisper_fine.py file
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -37,11 +36,7 @@ torch.cuda.manual_seed_all(1004)
 
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method("spawn")
-    # try:
-    #     torch.multiprocessing.set_start_method('spawn')
-    # except RuntimeError:
-    #     # Context đã được thiết lập, bỏ qua
-    #     pass
+
     parser = argparse.ArgumentParser(description="whisper prompt tuning")
 
     parser.add_argument(
@@ -75,7 +70,6 @@ if __name__ == "__main__":
     parser.add_argument("--random", action="store_true", help="context perturbation")
     parser.add_argument("--basic", action="store_true", help="collected description")
 
-    # Add arguments for Hugging Face integration and checkpointing
     parser.add_argument(
         "--save-hf", action="store_true", help="Save model to Hugging Face Hub"
     )
@@ -105,7 +99,6 @@ if __name__ == "__main__":
     print("Device:", device)
     args.prompt = True
 
-    # Login to Hugging Face if saving to Hub
     if args.save_hf and (args.hf_token or args.hf_repo):
         if args.hf_token:
             login(token=args.hf_token)
@@ -120,7 +113,6 @@ if __name__ == "__main__":
             print(f"No repository name specified, using: {args.hf_repo}")
     print(f"save_hf: {args.save_hf}, hf_repo: {args.hf_repo}")
 
-    # Thư mục đầu ra trên Kaggle
     root_path = "/kaggle/working"
 
     output_dir = os.path.join(root_path, "results", args.exp_name)
@@ -133,10 +125,8 @@ if __name__ == "__main__":
         try:
             api = HfApi()
 
-            # Lấy toàn bộ file trong repository
             all_files = api.list_repo_files(repo_id)
 
-            # Lọc ra các thư mục checkpoint chứa file quan trọng
             checkpoints = [
                 f
                 for f in all_files
@@ -148,27 +138,22 @@ if __name__ == "__main__":
                     f"Không tìm thấy checkpoint nào trong repository {repo_id}"
                 )
 
-            # Sắp xếp checkpoint theo số thứ tự giảm dần
             sorted_checkpoints = sorted(
                 checkpoints,
                 key=lambda x: int(re.search(r"checkpoint-(\d+)", x).group(1)),
                 reverse=True,
             )
 
-            # Lấy checkpoint mới nhất
             latest_checkpoint = sorted_checkpoints[0]
             print(f"Latest checkpoint: {latest_checkpoint}")
 
-            # Lấy thư mục checkpoint
             checkpoint_folder = "/".join(latest_checkpoint.split("/")[:-1])
             print(f"Checkpoint folder: {checkpoint_folder}")
 
-            # Tạo thư mục local để lưu checkpoint - loại bỏ hoàn toàn phần checkpoints/
             local_checkpoint_dir = os.path.join(root_path, "results/")
             print(f"Local checkpoint dir: {local_checkpoint_dir}")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
 
-            # Các file cần tải
             files_to_download = [
                 "config.json",
                 "generation_config.json",
@@ -181,7 +166,6 @@ if __name__ == "__main__":
                 "trainer_state.json",
             ]
 
-            # Tải từng file
             for file in files_to_download:
                 try:
                     full_file_path = os.path.join(checkpoint_folder, file)
@@ -220,7 +204,6 @@ if __name__ == "__main__":
             if not any(checkpoint_path in f for f in all_files):
                 raise ValueError(f"Không tìm thấy checkpoint {checkpoint_name}")
 
-            # local_checkpoint_dir = os.path.join(root_path, "results", "checkpoints", checkpoint_name)
             local_checkpoint_dir = os.path.join(root_path, "results")
             os.makedirs(local_checkpoint_dir, exist_ok=True)
 
@@ -244,18 +227,18 @@ if __name__ == "__main__":
                     hf_hub_download(
                         repo_id=repo_id,
                         filename=full_file_path,
-                        local_dir=local_checkpoint_dir,  # khi download se append ca full_file_path vao local folder
+                        local_dir=local_checkpoint_dir,
                         local_dir_use_symlinks=False,
                     )
                 except Exception as e:
                     print(f"Không thể tải file {file}: {e}")
 
             print(f"Đã tải checkpoint cụ thể: {checkpoint_name}")
-            # print(f"Local checkpoint dir: {local_checkpoint_dir}")
+
             local_checkpoint_dir = os.path.join(
                 local_checkpoint_dir, f"checkpoints/{checkpoint_name}"
             )
-            return local_checkpoint_dir  # full path
+            return local_checkpoint_dir
 
         except Exception as e:
             print(f"Lỗi khi tải checkpoint cụ thể: {e}")
@@ -284,18 +267,17 @@ if __name__ == "__main__":
 
     if args.prompt:
         if args.eval and args.checkpoint_path:
-            # For evaluation with specified checkpoint
+
             model = WhisperPromptForConditionalGeneration.from_pretrained(
                 args.checkpoint_path
             )
             print(f"Model loaded from {args.checkpoint_path} for evaluation!")
         else:
-            # For initial training
+
             model = WhisperPromptForConditionalGeneration.from_pretrained(
                 f"openai/whisper-{args.model}"
             )
 
-        # Freeze all parameters
         for name, param in model._named_members(
             lambda module: module._parameters.items()
         ):
@@ -312,7 +294,6 @@ if __name__ == "__main__":
         print("Prompt must be used.")
         raise (ValueError)
 
-    # prepare feature extractor, tokenizer
     feature_extractor = WhisperFeatureExtractor.from_pretrained(
         f"openai/whisper-{args.model}"
     )
@@ -323,10 +304,8 @@ if __name__ == "__main__":
         f"openai/whisper-{args.model}", language="en", task="transcribe"
     )
 
-    # data collator
     data_collator = DataCollatorSpeechS2SWhitPadding(processor=processor)
 
-    # Đường dẫn đến dữ liệu trên Kaggle
     if args.dataset == "earning":
         data_root = "/kaggle/input/earning-calls"
     elif args.dataset == "ocw":
@@ -446,7 +425,7 @@ if __name__ == "__main__":
         print("Processing evaluation data")
         data_eval = PromptWhisperDataset(
             base_path=os.path.join(data_root, "medical-united-syn-med/"),
-            phase="dev", # add
+            phase="dev",
             feature_extractor=feature_extractor,
             audio_type=".mp3",
             tokenizer=tokenizer,
@@ -483,7 +462,7 @@ if __name__ == "__main__":
             hf_data=hf_dataset["test"],
         )
 
-        data_eval = None  # uwb does not have dev set
+        data_eval = None
 
     else:
         raise ValueError("Wrong dataset")
@@ -497,11 +476,11 @@ if __name__ == "__main__":
 
     eval_step = int((len(data_train) // 2) // args.batch)
     log_step = int((len(data_train) // 50) // args.batch)
-    
+
     if eval_step < 1:
-      eval_step = 1
+        eval_step = 1
     if log_step < 1:
-      log_step = 1
+        log_step = 1
 
     print("Train data len:", len(data_train))
     print("Eval data len:", len(data_eval))
@@ -513,15 +492,11 @@ if __name__ == "__main__":
 
     generation_config = GenerationConfig(pos_token_id=50360)
 
-    # Configure HF Hub settings based on arguments
     hub_strategy = "every_save" if args.save_hf else None
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
-        # hub_model_id=args.hf_repo if args.save_hf else None,
-        # hub_strategy=hub_strategy,
-        # push_to_hub=args.save_hf,
-        save_strategy="steps",  # eval steps
+        save_strategy="steps",
         weight_decay=0.01,
         dataloader_num_workers=1,
         per_device_train_batch_size=args.batch,
@@ -532,7 +507,7 @@ if __name__ == "__main__":
         gradient_checkpointing=True,
         fp16=True,
         evaluation_strategy="steps",
-        per_device_eval_batch_size=1,  # Điều chỉnh batch size nếu cần
+        per_device_eval_batch_size=1,
         predict_with_generate=True,
         generation_max_length=225,
         save_steps=eval_step,
@@ -556,10 +531,10 @@ if __name__ == "__main__":
         def __init__(self, hub_repo):
             self.hub_repo = hub_repo
             self.api = HfApi()
-            self.uploaded_checkpoints = set()  # Theo dõi các checkpoint đã upload
+            self.uploaded_checkpoints = set()
 
         def on_save(self, args, state, control, **kwargs):
-            # Tìm tất cả các checkpoint trong thư mục output
+
             checkpoints = [
                 d for d in os.listdir(args.output_dir) if d.startswith("checkpoint-")
             ]
@@ -569,9 +544,9 @@ if __name__ == "__main__":
                 return
 
             try:
-                # Upload các checkpoint vào thư mục checkpoints/
+
                 for checkpoint in checkpoints:
-                    # Chỉ upload checkpoint nếu chưa được upload trước đó
+
                     if checkpoint not in self.uploaded_checkpoints:
                         checkpoint_path = os.path.join(args.output_dir, checkpoint)
                         self.api.upload_folder(
@@ -583,7 +558,6 @@ if __name__ == "__main__":
                         self.uploaded_checkpoints.add(checkpoint)
                         print(f"Pushed {checkpoint} to {self.hub_repo}/checkpoints/")
 
-                # Các file thường được push_to_hub=True tự động xử lý
                 standard_files = [
                     "config.json",
                     "pytorch_model.bin",
@@ -603,10 +577,9 @@ if __name__ == "__main__":
                     "README.md",
                 ]
 
-                # Upload các file không phải là file tiêu chuẩn hoặc checkpoint
                 for item in os.listdir(args.output_dir):
                     item_path = os.path.join(args.output_dir, item)
-                    # Chỉ upload file không thuộc danh sách tiêu chuẩn và không phải thư mục checkpoint
+
                     if (
                         os.path.isfile(item_path)
                         and not item.startswith(".")
@@ -627,7 +600,6 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Error in main push operation: {e}")
 
-    # Trong phần khởi tạo Trainer
     hf_hub_callback = (
         HuggingFaceHubCallback(hub_repo=args.hf_repo) if args.save_hf else None
     )
@@ -636,81 +608,29 @@ if __name__ == "__main__":
         args=training_args,
         model=model,
         train_dataset=data_train,
-        # eval_dataset=data_eval,
         data_collator=data_collator,
         compute_metrics=compute_wer,
         tokenizer=processor.feature_extractor,
         callbacks=[hf_hub_callback] if hf_hub_callback else None,
     )
 
-    # if not args.eval:
-    #     print("Start Training!")
-
-    #     if args.checkpoint_path and args.resume:
-    #         print(f"Resuming training from specificy checkpoint: {args.checkpoint_path}")
-    #         print(f"Checkpont dir: {checkpoint_dir}")
-    #     elif args.resume:
-    #         print(f"Resuming training from checkpoint: {checkpoint_dir}")
-
-    #     trainer.train(resume_from_checkpoint=checkpoint_dir)
-
-    #     trainer.save_model(output_dir)
-    #     processor.save_pretrained(output_dir)
-
-    #     # Push to hub if requested
-    #     if args.save_hf and args.hf_repo:
-    #         print(f"Pushing final model to Hugging Face Hub: {args.hf_repo}")
-    #         trainer.push_to_hub()
-
-    # print("Start Evaluation!!")
-
-    # if args.prompt:
-    #     print("Using prompt")
-
-    # result = trainer.evaluate(data_test)
-    # print(result)
-
-    # # print results
-    # with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-    #     t.write(str(result))
-
-    # if args.eval:
-    #   if args.base_line:
-    #       base_line_model = WhisperPromptForConditionalGeneration.from_pretrained('openai/whisper-base.en')
-    #       print("Evaluating with Whisper base-line model")
-
-    #       trainer.model = base_line_model
-    #       result = trainer.evaluate(data_test)
-    #       print(result)
-
-    #       with open(os.path.join(root_path, "results", args.exp_name, 'result_base_line.txt'), 'w') as t:
-    #           t.write(str(result))
-    #   else:
-    #       print("Evaluating with the fine-tuned model")
-    #       result = trainer.evaluate(data_test)
-    #       print(result)
-
-    #       with open(os.path.join(root_path, "results", args.exp_name, 'result.txt'), 'w') as t:
-    #           t.write(str(result))
-
     if args.eval:
-        # Choose the appropriate dataset based on the eval_on_dev flag
+
         eval_dataset = data_eval if args.eval_on_dev else data_test
         dataset_name = "dev" if args.eval_on_dev else "test"
 
+        base_line_model_name = "openai/whisper-small.en"
+
         if args.base_line:
             base_line_model = WhisperPromptForConditionalGeneration.from_pretrained(
-                "openai/whisper-base.en"
+                base_line_model_name
             )
             print(f"Evaluating with Whisper base-line model on {dataset_name} set")
             trainer.model = base_line_model
             result = trainer.evaluate(eval_dataset)
             print(result)
 
-            # old code
-            result_filename = (
-                f"result_base_line_on_{args.dataset}_on_{dataset_name}_set.txt"
-            )
+            result_filename = f"result_base_line_on_{base_line_model_name}_with_{args.dataset}/{dataset_name}.txt"
             with open(
                 os.path.join(root_path, "results", args.exp_name, result_filename), "w"
             ) as t:
