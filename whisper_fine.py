@@ -615,7 +615,7 @@ if __name__ == "__main__":
         eval_dataset = data_eval if args.eval_on_dev else data_test
         dataset_name = "dev" if args.eval_on_dev else "test"
 
-        base_line_model_name = "openai/whisper-small.en"
+        base_line_model_name = "openai/whisper-base.en"
 
         if args.base_line:
             base_line_model = WhisperPromptForConditionalGeneration.from_pretrained(
@@ -626,16 +626,17 @@ if __name__ == "__main__":
             result = trainer.evaluate(eval_dataset)
             print(result)
 
-            result_filename = f"result_base_line_on_{base_line_model_name}_with_{args.dataset}/{dataset_name}.txt"
-            # with open(
-            #     os.path.join(root_path, "results", args.exp_name, result_filename), "w"
-            # ) as t:
-            #     t.write(str(result))
             result_path = os.path.join(root_path, "results", args.exp_name)
             os.makedirs(result_path, exist_ok=True)
+            
+            result_filename = f"result_base_line_on_{base_line_model_name}_with_{args.dataset}_{dataset_name}.txt"
 
-            with open(os.path.join(result_path, result_filename), "w") as t:
+            with open(
+                os.path.join(root_path, "results", args.exp_name, result_filename), "w"
+            ) as t:
                 t.write(str(result))
+                
+            print(f"Done evaluating with {base_line_model_name} on {args.dataset}_{dataset_name} set")
 
         else:
             print(f"Evaluating with the fine-tuned model on {dataset_name} set")
