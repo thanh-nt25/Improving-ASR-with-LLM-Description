@@ -312,10 +312,10 @@ if __name__ == "__main__":
         data_root = "/kaggle/input/ocw-biasing"
     elif args.dataset == "medical":
         data_root = "/kaggle/input/medical-and-intent"
-        print("Using medical and intent dataset")
     elif args.dataset == "medical-syn-138":
         data_root = "/kaggle/input/medical-syn-med-138"
-        print("Using medical syn med dataset")
+    elif args.dataset == "medical-syn-75":
+        data_root = "/kaggle/input/medical-syn-med-75"
 
     if args.dataset == "earning":
         data_train = PromptWhisperDataset(
@@ -406,6 +406,38 @@ if __name__ == "__main__":
             prompt=args.prompt,
             basic=args.basic,
         )
+    elif args.dataset == "medical-syn-75":
+        print("Processing training data")
+        data_train = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med-75/"),
+            phase="train",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        print("Processing evaluation data")
+        data_eval = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med-75/"),
+            phase="dev",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+        print("Processing test data")
+        data_test = PromptWhisperDataset(
+            base_path=os.path.join(data_root, "medical-united-syn-med-75/"),
+            phase="test",
+            feature_extractor=feature_extractor,
+            audio_type=".mp3",
+            tokenizer=tokenizer,
+            prompt=args.prompt,
+            basic=args.basic,
+        )
+
     elif args.dataset == "uwb":
         hf_dataset = load_dataset("Jzuluaga/uwb_atcc")
 
@@ -595,9 +627,14 @@ if __name__ == "__main__":
             print(result)
 
             result_filename = f"result_base_line_on_{base_line_model_name}_with_{args.dataset}/{dataset_name}.txt"
-            with open(
-                os.path.join(root_path, "results", args.exp_name, result_filename), "w"
-            ) as t:
+            # with open(
+            #     os.path.join(root_path, "results", args.exp_name, result_filename), "w"
+            # ) as t:
+            #     t.write(str(result))
+            result_path = os.path.join(root_path, "results", args.exp_name)
+            os.makedirs(result_path, exist_ok=True)
+
+            with open(os.path.join(result_path, result_filename), "w") as t:
                 t.write(str(result))
 
         else:
